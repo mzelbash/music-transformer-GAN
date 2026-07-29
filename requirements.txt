@@ -1,0 +1,5 @@
+streamlit>=1.36
+music21>=9.1
+numpy
+matplotlib
+pandas
