@@ -157,7 +157,7 @@ def to_streams(score, limit=None):
         elif isinstance(el, chord.Chord):
             notes.append(str(el.pitches[-1])); durs.append(str(el.duration.quarterLength))
         elif isinstance(el, note.Rest):
-            notes.append("rest"); durs.append(str(el.duration.quarterLength))
+            notes.append("REST"); durs.append(str(el.duration.quarterLength))
         if limit and len(notes) >= limit:
             break
     return notes, durs
@@ -295,7 +295,7 @@ C = {}
 
 C["setup"] = '''
 # --- One-time setup in Colab (use a GPU runtime for training) ---
-!pip -q install music21 keras-nlp
+!pip -q install music21 keras-hub
 
 import glob, os
 import numpy as np
@@ -375,7 +375,7 @@ def parse_to_streams(score):
         elif isinstance(el, chord.Chord):
             notes.append(str(el.pitches[-1])); durations.append(str(el.duration.quarterLength))
         elif isinstance(el, note.Rest):
-            notes.append("rest");              durations.append(str(el.duration.quarterLength))
+            notes.append("REST");              durations.append(str(el.duration.quarterLength))
     return notes, durations
 
 # Build the corpus: one (notes, durations) string pair per score
@@ -392,49 +392,59 @@ print(len(notes_corpus), "scores parsed into streams")
 C["tokenize"] = '''
 from tensorflow.keras import layers
 
-BATCH_SIZE = 256
-def create_dataset(elements):
-    ds = (tf.data.Dataset.from_tensor_slices(elements)
-          .batch(BATCH_SIZE, drop_remainder=True)
-          .shuffle(1000))
-    vectorize = layers.TextVectorization(standardize=None, output_mode="int")
-    vectorize.adapt(ds)
-    return ds, vectorize, vectorize.get_vocabulary()
+# One vocabulary for notes, one for durations. TextVectorization gives every distinct
+# token an integer id, most frequent first. Ids 0 and 1 are reserved for padding and [UNK].
+def make_vectorizer(texts):
+    vec = layers.TextVectorization(standardize=None, output_mode="int")
+    vec.adapt(tf.data.Dataset.from_tensor_slices(texts).batch(128))
+    return vec, vec.get_vocabulary()
 
-notes_ds, notes_vec, notes_vocab = create_dataset(notes_corpus)
-durs_ds,  durs_vec,  durs_vocab  = create_dataset(durations_corpus)
-seq_ds = tf.data.Dataset.zip((notes_ds, durs_ds))
+notes_vec, notes_vocab = make_vectorizer(notes_corpus)
+durs_vec,  durs_vocab  = make_vectorizer(durations_corpus)
 
 print("note vocab:", len(notes_vocab), " duration vocab:", len(durs_vocab))
+print("first note tokens:", notes_vocab[:10])
 '''
 
 C["window"] = '''
-SEQ_LEN = 50
+SEQ_LEN, BATCH_SIZE = 50, 256
 
-def make_training_set(seq_ds):
-    def to_windows(notes, durs):
-        # shift by one: input = first SEQ_LEN, target = same window shifted +1
-        return ((notes[:-1], durs[:-1]), (notes[1:], durs[1:]))
-    ds = (seq_ds
-          .flat_map(lambda n, d: tf.data.Dataset.zip((
-              tf.data.Dataset.from_tensor_slices(n).batch(SEQ_LEN + 1, drop_remainder=True),
-              tf.data.Dataset.from_tensor_slices(d).batch(SEQ_LEN + 1, drop_remainder=True))))
-          .map(to_windows)
-          .batch(64))
-    return ds
+# 1. Cut every piece into overlapping windows of SEQ_LEN + 1 tokens (slide by one token)
+notes_seqs, durs_seqs = [], []
+for n, d in zip(notes_corpus, durations_corpus):
+    n, d = n.split(), d.split()
+    for i in range(len(n) - SEQ_LEN):
+        notes_seqs.append(" ".join(n[i:i + SEQ_LEN + 1]))
+        durs_seqs.append(" ".join(d[i:i + SEQ_LEN + 1]))
+print(len(notes_seqs), "training windows")
 
-train_ds = make_training_set(seq_ds)
+# 2. Turn text into ids. Input = first SEQ_LEN tokens, target = the same window shifted by one
+def split_xy(n, d):
+    n, d = notes_vec(n), durs_vec(d)
+    return (n[:, :-1], d[:, :-1]), (n[:, 1:], d[:, 1:])
+
+train_ds = (tf.data.Dataset.from_tensor_slices((notes_seqs, durs_seqs))
+            .shuffle(10000)
+            .batch(BATCH_SIZE)
+            .map(split_xy)
+            .prefetch(tf.data.AUTOTUNE))
+
+(x_notes, x_durs), (y_notes, y_durs) = next(iter(train_ds))
+print("input shape:", x_notes.shape, " target shape:", y_notes.shape)   # (256, 50) each
 '''
 
 C["posenc"] = '''
-import keras_nlp
 from tensorflow.keras import layers
+try:
+    import keras_hub as kh          # current name of the library
+except ImportError:
+    import keras_nlp as kh          # older name, same layer
 
 class TokenAndPositionEmbedding(layers.Layer):
     def __init__(self, vocab_size, embed_dim):
         super().__init__()
         self.token_emb = layers.Embedding(input_dim=vocab_size, output_dim=embed_dim)
-        self.pos_emb = keras_nlp.layers.SinePositionEncoding()   # deterministic, any length
+        self.pos_emb = kh.layers.SinePositionEncoding()   # deterministic, any length
     def call(self, x):
         embedding = self.token_emb(x)
         return embedding + self.pos_emb(embedding)
@@ -497,13 +507,32 @@ print(" ".join(gen_notes[:40]))
 '''
 
 C["analysis"] = '''
-# The model returns attention scores from the TransformerBlock.
-# Feed a generated sequence back in and read where each prediction looked.
-x1 = notes_vec([" ".join(gen_notes)])
-x2 = durs_vec([" ".join(gen_durs)])
-_, _ = model.predict([x1, x2], verbose=0)
-# Build a sub-model that also outputs attention_scores to visualise the look-back,
-# then plot it as a heatmap (rows = predicted token, cols = attended-to token).
+import matplotlib.pyplot as plt
+
+# A sub-model that returns the attention scores from the Transformer block
+att_model = models.Model(inputs=[note_in, dur_in], outputs=attention_scores)
+
+L = min(SEQ_LEN, len(gen_notes))
+x1 = notes_vec([" ".join(gen_notes[:L])])
+x2 = durs_vec([" ".join(gen_durs[:L])])
+
+att = att_model.predict([x1, x2], verbose=0)[0].mean(axis=0)   # [L, L], averaged over heads
+p_note, _ = model.predict([x1, x2], verbose=0)                  # [1, L, note_vocab]
+
+fig, (a1, a2) = plt.subplots(1, 2, figsize=(16, 6))
+
+# 1. Attention: row = the position making a prediction, column = where it looked
+a1.imshow(att, cmap="Greens")
+a1.set_xticks(range(L)); a1.set_xticklabels(gen_notes[:L], rotation=90, fontsize=6)
+a1.set_yticks(range(L)); a1.set_yticklabels(gen_notes[:L], fontsize=6)
+a1.set_title("Attention (darker = looked there more)")
+
+# 2. Next-note probabilities at every position: blank rows = notes the model avoids
+a2.imshow(p_note[0].T, aspect="auto", cmap="Greys", origin="lower")
+a2.set_yticks(range(len(notes_vocab))); a2.set_yticklabels(notes_vocab, fontsize=5)
+a2.set_xlabel("position in the sequence"); a2.set_title("P(next note) at each position")
+
+plt.tight_layout(); plt.show()
 '''
 
 C["polyphony"] = '''
@@ -521,18 +550,47 @@ events = ["NOTE_ON<74>", "NOTE_ON<70>", "NOTE_ON<65>", "NOTE_ON<58>",
 
 C["musegan_data"] = '''
 # MuseGAN treats the score as an image: [batch, N_BARS, N_STEPS, N_PITCHES, N_TRACKS]
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from music21 import corpus, meter, chord
+
 N_BARS, N_STEPS, N_PITCHES, N_TRACKS = 2, 16, 84, 4
+STEPS_PER_BEAT = N_STEPS // 4        # 16 steps per 4/4 bar = 4 steps per beat
+LOWEST = 24                          # pitch row 0 = MIDI 24 (C1), so rows cover MIDI 24 to 107
 
-# The book uses 229 four-voice Bach chorales. music21 ships Bach chorales too, so you can
-# build the training tensor offline, with no download.
-from music21 import corpus
-chorales = list(corpus.chorales.Iterator())     # ~370 four-voice chorales
-print(len(chorales), "chorales available offline")
+def chorale_to_roll(score):
+    """One chorale -> piano roll [time_steps, 84, 4], or None if it does not fit."""
+    if len(score.parts) != N_TRACKS:
+        return None
+    ts = score.recurse().getElementsByClass(meter.TimeSignature)
+    if ts and ts[0].ratioString != "4/4":
+        return None
+    n_steps = int(round(float(score.highestTime) * STEPS_PER_BEAT))
+    roll = np.zeros((n_steps, N_PITCHES, N_TRACKS), dtype=np.float32)
+    for t, part in enumerate(score.parts):                  # S, A, T, B
+        for n in part.flatten().notes:
+            p = n.pitches[-1] if isinstance(n, chord.Chord) else n.pitch
+            row = p.midi - LOWEST
+            start = int(round(float(n.offset) * STEPS_PER_BEAT))
+            end = int(round(float(n.offset + n.duration.quarterLength) * STEPS_PER_BEAT))
+            if 0 <= row < N_PITCHES and end > start:
+                roll[start:end, row, t] = 1.0
+    return roll
 
-# For each chorale: keep 4 voices (S A T B), quantize to 16 steps per bar, one-hot the
-# pitch to length 84, take 2-bar chunks -> arrays of shape [N_BARS, N_STEPS, N_PITCHES, N_TRACKS].
-# Stack all chunks into the training tensor:
-print("target training shape:", (None, N_BARS, N_STEPS, N_PITCHES, N_TRACKS))
+# The book uses 229 four-voice Bach chorales. music21 ships Bach chorales too,
+# so we can build the training tensor offline, with no download.
+chunks = []
+for score in corpus.chorales.Iterator():
+    roll = chorale_to_roll(score)
+    if roll is None:
+        continue
+    chunk_len = N_BARS * N_STEPS                             # 2 bars = 32 steps
+    for s in range(0, len(roll) - chunk_len + 1, chunk_len):
+        chunks.append(roll[s:s + chunk_len].reshape(N_BARS, N_STEPS, N_PITCHES, N_TRACKS))
+
+data = np.stack(chunks) * 2.0 - 1.0     # 0/1 -> -1/+1 to match the generator's tanh output
+print("training tensor:", data.shape)   # (n_chunks, 2, 16, 84, 4)
 '''
 
 C["temporal"] = '''
@@ -619,6 +677,7 @@ C["wgan"] = '''
 generator, critic = Generator(), Critic()
 g_opt = tf.keras.optimizers.Adam(1e-4, beta_1=0.5, beta_2=0.9)
 c_opt = tf.keras.optimizers.Adam(1e-4, beta_1=0.5, beta_2=0.9)
+CRITIC_STEPS, GP_WEIGHT, BATCH, EPOCHS = 5, 10.0, 64, 100
 
 def gradient_penalty(real, fake):
     eps = tf.random.uniform([tf.shape(real)[0], 1, 1, 1, 1])
@@ -633,7 +692,39 @@ def rand_z(n):
     return [tf.random.normal((n, Z_DIM)), tf.random.normal((n, Z_DIM)),
             tf.random.normal((n, N_TRACKS, Z_DIM)), tf.random.normal((n, N_TRACKS, Z_DIM))]
 
-# train critic several steps per generator step, add 10 * gradient_penalty to the critic loss.
+@tf.function
+def train_step(real):
+    n = tf.shape(real)[0]
+    # 1. Critic: score real above fake, plus the gradient penalty (several steps)
+    for _ in range(CRITIC_STEPS):
+        with tf.GradientTape() as tape:
+            fake = generator(rand_z(n), training=True)
+            c_loss = (tf.reduce_mean(critic(fake, training=True))
+                      - tf.reduce_mean(critic(real, training=True))
+                      + GP_WEIGHT * gradient_penalty(real, fake))
+        grads = tape.gradient(c_loss, critic.trainable_variables)
+        c_opt.apply_gradients(zip(grads, critic.trainable_variables))
+    # 2. Generator: make the critic score its fakes higher
+    with tf.GradientTape() as tape:
+        fake = generator(rand_z(n), training=True)
+        g_loss = -tf.reduce_mean(critic(fake, training=True))
+    grads = tape.gradient(g_loss, generator.trainable_variables)
+    g_opt.apply_gradients(zip(grads, generator.trainable_variables))
+    return c_loss, g_loss
+
+train_data = (tf.data.Dataset.from_tensor_slices(data.astype("float32"))
+              .shuffle(2000).batch(BATCH, drop_remainder=True))
+
+for epoch in range(EPOCHS):
+    for real in train_data:
+        c_loss, g_loss = train_step(real)
+    if epoch % 10 == 0:
+        print(f"epoch {epoch:3d}   critic loss {float(c_loss):8.3f}   generator loss {float(g_loss):8.3f}")
+
+# Generate: for every step and voice, the brightest pitch row is the note
+sample = generator(rand_z(1), training=False)[0].numpy()     # [2, 16, 84, 4]
+midi_notes = sample.argmax(axis=2) + LOWEST                    # [2, 16, 4]: S A T B per step
+print(midi_notes[0, :8])                                       # first 8 steps of bar 1
 '''
 
 FULL_NOTEBOOK = "\n\n".join(f"# ===== {k} =====\n{v.strip()}" for k, v in C.items())
@@ -713,6 +804,10 @@ def page_parse():
                 "and `Rest` objects begin.\n"
                 "- **value:** the content, for example a pitch like `C5`, a key like `f# minor`, "
                 "or a time signature like `4/4`.")
+        callout("concept", "Which Bach?",
+                "The book trains on the J.S. Bach <b>cello suites</b>. This app uses the Bach "
+                "<b>chorales</b> that ship with music21, so everything runs with no download. "
+                "The pipeline is exactly the same; only the data changes.")
         section("Hear the top line")
         st.audio(synth_wav(top_line(score, 48)))
         st.caption("The melody only: at each moment we keep the highest note, and synthesize the "
@@ -760,7 +855,7 @@ def page_streams():
         "signature go at the front with duration 0.0, because they take no musical time.")
     callout("example", "Example",
             "G3 held for 1 beat, then silence for 1 beat, then A3 for 2 beats becomes:<br><br>"
-            "<b>notes</b> = [G3, rest, A3] &nbsp; and &nbsp; <b>durations</b> = [1.0, 1.0, 2.0]"
+            "<b>notes</b> = [G3, REST, A3] &nbsp; and &nbsp; <b>durations</b> = [1.0, 1.0, 2.0]"
             "<br><br>Read the two lists together, column by column, and you get the music back.")
     try:
         score = load_score()
@@ -786,13 +881,15 @@ def page_tokenize():
         "together.")
     callout("example", "Example",
             "Just like a text tokenizer turns 'the cat sat' into [5, 8, 2], our music tokenizer "
-            "turns [G3, rest, A3] into something like [2, 6, 3]. The numbers are just labels; the "
+            "turns [G3, REST, A3] into something like [17, 6, 25]. The numbers are just labels; the "
             "model learns what they mean from the data.")
     try:
         score = load_score()
         notes, durs = to_streams(score)
-        nvocab = ["", "[UNK]"] + sorted(set(notes))
-        dvocab = ["", "[UNK]"] + sorted(set(durs))
+        from collections import Counter
+        # same order as TextVectorization: padding, [UNK], then most frequent first
+        nvocab = ["", "[UNK]"] + [t for t, _ in Counter(notes).most_common()]
+        dvocab = ["", "[UNK]"] + [t for t, _ in Counter(durs).most_common()]
         nid = {t: i for i, t in enumerate(nvocab)}
         section("Live: note ids from a real chorale")
         cc1, cc2 = st.columns(2)
@@ -801,6 +898,9 @@ def page_tokenize():
         demo = notes[:12]
         st.dataframe(pd.DataFrame({"note token": demo, "id": [nid[t] for t in demo]}),
                      use_container_width=True, height=300)
+        st.caption("Ids 0 and 1 are reserved for padding and [UNK]. The rest follow frequency: "
+                   "the most common token gets id 2. Ids from one chorale differ from the full "
+                   "corpus, so the numbers in Colab will not match this table exactly.")
     except Exception as e:
         st.warning(f"Live view unavailable here ({e}).")
     section("Colab code")
@@ -814,18 +914,22 @@ def page_window():
          "LIVE DEMO", "green")
     text_block(
         "We train the model to **predict the next event**. To make training examples, we slide a "
-        "fixed-size window across the sequence: the window is the **input**, and the very next "
-        "event is the **answer** we want it to predict.")
+        "fixed-size window across the sequence one token at a time. The window is the **input**, "
+        "and the **target** is the same window shifted one step to the right, so the model "
+        "practises a next-event guess at every position at once.")
     callout("example", "Example",
             "Think of flashcards. From G3 D3 B3 A3 B3 with a window of 3:<br><br>"
             "input <b>[G3 D3 B3]</b> &rarr; answer <b>A3</b>, &nbsp; then slide: &nbsp; "
             "input <b>[D3 B3 A3]</b> &rarr; answer <b>B3</b>.<br><br>"
-            "The note list and duration list slide together, so they stay aligned.")
+            "In training, the target for [G3 D3 B3] is [D3 B3 A3]: one guess per position, and "
+            "the last one is the next event. The note list and duration list slide together, so "
+            "they stay aligned.")
     try:
         score = load_score()
         notes, durs = to_streams(score)
-        rows = [{"window (input)": " ".join(notes[i:i + 6]), "predict next": notes[i + 6]}
-                for i in range(3)]
+        rows = [{"window (input)": " ".join(notes[i:i + 6]),
+                 "target (shifted by one)": " ".join(notes[i + 1:i + 7]),
+                 "next event": notes[i + 6]} for i in range(3)]
         section("Live: windows from a real chorale")
         st.dataframe(pd.DataFrame(rows), use_container_width=True)
     except Exception as e:
@@ -881,8 +985,10 @@ def page_model():
     with ci:
         section("Input")
         st.markdown("Two aligned windows of token **ids**: the notes, and the durations.")
-        st.code("notes: [START, G3, D3, B3, A3]   ->  ids [1, 2, 4, 9, 3]\n"
-                "durs:  [0.0,   1.0, 1.0, 1.0, 1.0] ->  ids [10, 2, 2, 2, 2]", language=None)
+        st.code("notes: [START, G3, D3,  B3,  A3]   ->  ids [2, 17, 12, 9, 25]\n"
+                "durs:  [0.0,   1.0, 0.5, 1.0, 2.0] ->  ids [7, 4, 2, 4, 5]", language=None)
+        st.caption("Example ids, matching the lecture slides. Real ids come from the vocabulary "
+                   "built in Colab.")
     with co:
         section("Output")
         st.markdown("Per position, **two probability distributions**: next note, next duration.")
@@ -952,7 +1058,8 @@ def page_analysis():
          "Trained only to predict the next event, the model learns real music theory by itself.",
          "PAYOFF", "amber")
     text_block("Here is the surprising part. Trained only to **predict the next event**, the model "
-                "quietly learns structure that nobody programmed. Two things to look at in Colab:")
+                "quietly learns structure that nobody programmed. The Colab code below draws both "
+                "heatmaps from a generated sequence:")
     callout("key", "It discovered the key",
             "In the note-distribution heatmap, whole pitch rows stay blank: the model avoids "
             "out-of-key notes it was never told about.")
@@ -1007,7 +1114,8 @@ def page_musegan_data():
         "MuseGAN takes a totally different view. Instead of a list of tokens, it draws the music on "
         "a **grid**: pitch up the side, time across the bottom, a filled cell wherever a note "
         "sounds. That grid is basically an **image**, so we can use the same convolution tools we "
-        "use for pictures.")
+        "use for pictures. The Colab code below builds the real training tensor from the "
+        "chorales that ship with music21.")
     callout("example", "Picture it",
             "A spreadsheet: rows are pitches, columns are time, a cell is 1 if that pitch is "
             "playing then. Four voices = four stacked sheets (channels), like the R, G, B channels "
@@ -1089,7 +1197,9 @@ def page_wgan():
     text_block(
         "This is the training loop for the whole GAN, and it is the **same adversarial game** as "
         "your GAN lecture. The critic learns to score real above fake, the generator learns to "
-        "fool the critic, and a **gradient penalty** keeps the critic well-behaved.")
+        "fool the critic, and a **gradient penalty** keeps the critic well-behaved. The critic "
+        "trains 5 steps for every generator step. At the end, the code samples a new 2-bar "
+        "chorale and reads the notes back out of the piano roll.")
     section("Colab code")
     colab_code(C["wgan"])
     footer_nav(page_wgan)
