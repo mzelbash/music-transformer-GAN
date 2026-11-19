@@ -1,5 +1,7 @@
 # music-transformer-GAN
 
+Run it live at:https://music-transformer-gan-7s28l5evy6cpwxbp3isjrn.streamlit.app/page_model
+
 A Streamlit code lab for Chapter 11 (music generation) of *Generative Deep Learning* by David Foster.
 It covers both models from the chapter:
 
