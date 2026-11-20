@@ -142,6 +142,19 @@ hr { margin:1.3rem 0; }
 [data-testid="stSidebarNavLink"][aria-current="page"] span { color:#fff !important; }
 [data-testid="stSidebarNav"] a[aria-current="page"] { background:var(--brand); }
 [data-testid="stSidebarNav"] a[aria-current="page"] span { color:#fff !important; }
+
+/* ---------- home ---------- */
+.home-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:24px 26px;
+             border-top:6px solid var(--brand); margin-bottom:10px; }
+.home-card.gan { border-top-color:#E8952F; }
+.home-card.gan .path-k { color:#c67614; }
+.mini-seq { display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; }
+.mini-chip { border:1.5px solid var(--brand); background:#eef2ff; border-radius:8px; padding:4px 9px;
+             font-weight:700; font-size:.85rem; color:var(--ink); }
+.mini-grid { display:grid; grid-template-columns:repeat(16, 1fr); gap:3px; margin-top:16px; }
+.mini-cell { height:16px; border-radius:3px; background:#eef0f5; }
+.mini-cell.on1 { background:#43A047; } .mini-cell.on2 { background:#F0851A; }
+.mini-cell.on3 { background:#7B4FB8; } .mini-cell.on4 { background:#2F7FD6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -396,6 +409,221 @@ def footer_nav(func):
         pass
 
 
+# ============================================================ demo helpers
+import base64 as _b64
+import copy as _copy
+import hashlib as _hashlib
+import json as _json
+import tempfile as _tempfile
+from pathlib import Path as _Path
+
+ASSETS = _Path(__file__).resolve().parent / "assets"
+VOICE_COLORS = ["#43A047", "#F0851A", "#7B4FB8", "#2F7FD6", "#E23B3B", "#00897B"]
+DEFAULT_PIECE = "bwv66.6"
+
+
+@st.cache_resource(show_spinner=False)
+def bach_catalog():
+    """Bach scores that ship with music21: {name: path}."""
+    try:
+        from music21 import corpus
+        out = {}
+        for p in corpus.getComposer("bach"):
+            stem = _Path(str(p)).stem
+            if stem.startswith("bwv"):
+                out[stem] = str(p)
+        return dict(sorted(out.items(), key=lambda kv: [int(x) if x.isdigit() else x
+                                                        for x in _re.split(r"(\d+)", kv[0])]))
+    except Exception:
+        return {}
+
+
+@st.cache_resource(show_spinner=False)
+def parse_corpus(path):
+    from music21 import corpus
+    return corpus.parse(path)
+
+
+@st.cache_resource(show_spinner=False)
+def parse_upload(data, suffix):
+    from music21 import converter
+    with _tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+        f.write(data)
+        name = f.name
+    return converter.parse(name)
+
+
+def current_piece():
+    """(label, score) for the piece chosen in the sidebar."""
+    up = st.session_state.get("upload")
+    if up is not None:
+        data = up.getvalue()
+        return up.name, parse_upload(data, _Path(up.name).suffix or ".mid")
+    cat = bach_catalog()
+    name = st.session_state.get("piece", DEFAULT_PIECE)
+    if name in cat:
+        return f"Bach {name.upper().replace('BWV', 'BWV ')}", parse_corpus(cat[name])
+    return "Bach BWV 66.6", load_score()
+
+
+def part_names(score):
+    return [p.partName or f"Voice {i + 1}" for i, p in enumerate(score.parts)]
+
+
+def score_midi(s):
+    from music21 import midi
+    return midi.translate.streamToMidiFile(s).writestr()
+
+
+def parts_midi(score, idx):
+    from music21 import stream
+    sc = stream.Score()
+    for i in idx:
+        sc.insert(0, _copy.deepcopy(score.parts[i]))
+    return score_midi(sc)
+
+
+def tokens_midi(notes, durs):
+    from fractions import Fraction
+    from music21 import stream, note
+    s = stream.Stream()
+    for n, d in zip(notes, durs):
+        try:
+            ql = float(Fraction(d))
+        except (ValueError, ZeroDivisionError):
+            continue
+        if ql <= 0:
+            continue
+        try:
+            s.append(note.Rest(quarterLength=ql) if n == "REST" else note.Note(n, quarterLength=ql))
+        except Exception:
+            continue
+    return score_midi(s)
+
+
+def midi_player(data, key, roll=True):
+    """Piano sound plus a scrolling piano roll, played in the browser (html-midi-player)."""
+    b64 = _b64.b64encode(data).decode()
+    vid = "v" + _hashlib.md5((key + b64[:64]).encode()).hexdigest()[:8]
+    vis = (f'<midi-visualizer type="piano-roll" id="{vid}" '
+           f'style="display:block;background:#fff;border:1px solid #e4e8f1;border-radius:10px;'
+           f'margin-top:8px;overflow:auto;"></midi-visualizer>') if roll else ""
+    vattr = f'visualizer="#{vid}"' if roll else ""
+    doc = (
+        '<script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/'
+        'es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.5.0"></script>'
+        '<style>body{margin:0;font-family:Inter,sans-serif;} midi-player{display:block;width:100%;}'
+        'midi-player::part(control-panel){background:#eef2ff;border-radius:10px;}</style>'
+        f'<midi-player src="data:audio/midi;base64,{b64}" sound-font {vattr}></midi-player>{vis}')
+    components.html(doc, height=300 if roll else 70, scrolling=False)
+
+
+def chips(tokens, color="#3E5BD6", fill="#eef2ff", sub=None, sub_color="#E8952F", hl=None):
+    """A row of token chips; optional second line under each chip."""
+    cells = []
+    for i, t in enumerate(tokens):
+        on = hl is None or i in hl
+        style = (f"border:1.5px solid {color};background:{fill};color:#1B2333;" if on else
+                 "border:1.5px dashed #d0d5e2;background:#fff;color:#b0b6c4;")
+        top = (f'<div style="{style}border-radius:8px;padding:5px 6px;font-weight:700;'
+               f'font-size:.86rem;text-align:center;white-space:nowrap;">{_html.escape(str(t))}</div>')
+        bot = ""
+        if sub is not None:
+            bot = (f'<div style="border:1.5px solid {sub_color};border-radius:8px;padding:4px 6px;'
+                   f'margin-top:5px;font-size:.84rem;text-align:center;font-weight:600;'
+                   f'color:#1B2333;background:#fff;">{_html.escape(str(sub[i]))}</div>')
+        cells.append(f'<div style="min-width:58px;">{top}{bot}</div>')
+    st.markdown(f'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px;">'
+                f'{"".join(cells)}</div>', unsafe_allow_html=True)
+
+
+def note_roll(score, idx=None, beats=None, title=None):
+    """Matplotlib piano roll of the chosen voices."""
+    idx = list(range(len(score.parts))) if idx is None else idx
+    fig, ax = plt.subplots(figsize=(10, 3.4))
+    lo, hi, end = 127, 0, 0
+    for i in idx:
+        for n in score.parts[i].flatten().notes:
+            on, ql = float(n.offset), float(n.duration.quarterLength)
+            if beats and on >= beats:
+                continue
+            for p in n.pitches:
+                ax.add_patch(Rectangle((on, p.midi - 0.42), ql, 0.84,
+                                       color=VOICE_COLORS[i % 6], ec="white", lw=0.4))
+                lo, hi = min(lo, p.midi), max(hi, p.midi)
+            end = max(end, on + ql)
+    if hi:
+        ax.set_ylim(lo - 2, hi + 2)
+    ax.set_xlim(0, beats or end or 1)
+    ax.set_xlabel("time (beats)"); ax.set_ylabel("pitch (MIDI number)")
+    for side in ["top", "right"]:
+        ax.spines[side].set_visible(False)
+    if title:
+        ax.set_title(title, fontsize=10)
+    fig.tight_layout()
+    return fig
+
+
+def asset(name):
+    p = ASSETS / name
+    return p if p.exists() else None
+
+
+def need_assets(what):
+    st.info(f"{what} appear here after you run the **export** cell in Colab and upload the "
+            "`assets` folder to the app's GitHub repo.", icon=":material/upload:")
+
+
+def note_events(score):
+    """[(part, on, off, pitch_name)] for every note in every part."""
+    ev = []
+    for i, part in enumerate(score.parts):
+        for n in part.flatten().notes:
+            on = float(n.offset); off = on + float(n.duration.quarterLength)
+            ev.append((i, on, off, n.pitches[-1].nameWithOctave))
+    return ev
+
+
+def grid_and_events(score, start, beats=4.0, steps_per_beat=4):
+    ev = note_events(score)
+    nparts = len(score.parts)
+    grid = []
+    for k in range(int(beats * steps_per_beat)):
+        t = start + k / steps_per_beat
+        row = []
+        for i in range(nparts):
+            hit = [p for (pi, on, off, p) in ev if pi == i and on <= t < off]
+            row.append(hit[0] if hit else "–")
+        grid.append(row)
+    end = start + beats
+    win = [(on if on > start else start, off if off < end else end, p) for (pi, on, off, p) in ev
+           if off > start and on < end]
+    times = sorted({t for a, b, _ in win for t in (a, b)})
+    toks = []
+    for j, t in enumerate(times):
+        toks += [f"NOTE_OFF<{p}>" for a, b, p in win if b == t]
+        toks += [f"NOTE_ON<{p}>" for a, b, p in win if a == t]
+        if j + 1 < len(times):
+            toks.append(f"TIME_SHIFT<{times[j + 1] - t:g}>")
+    return grid, toks
+
+
+def roll_array(score, bars=2, steps=16, lowest=24, pitches=84):
+    """[time, pitch, voice] 0/1 array for the first bars, like the MuseGAN input."""
+    T = bars * steps
+    nv = len(score.parts)
+    arr = np.zeros((T, pitches, nv), dtype=int)
+    spb = steps / 4
+    for i, part in enumerate(score.parts):
+        for n in part.flatten().notes:
+            a = int(round(float(n.offset) * spb))
+            b = int(round((float(n.offset) + float(n.duration.quarterLength)) * spb))
+            row = n.pitches[-1].midi - lowest
+            if 0 <= row < pitches and a < T:
+                arr[a:min(b, T), row, i] = 1
+    return arr
+
+
 # ============================================================ CODE (Colab)
 C = {}
 
@@ -588,7 +816,7 @@ dur_out  = layers.Dense(len(durs_vocab),  activation="softmax", name="duration")
 model = models.Model([note_in, dur_in], [note_out, dur_out])
 model.compile(optimizer="adam",
               loss=["sparse_categorical_crossentropy", "sparse_categorical_crossentropy"])
-model.fit(train_ds, epochs=20)
+history = model.fit(train_ds, epochs=20)
 '''
 
 C["generate"] = '''
@@ -639,6 +867,47 @@ a2.set_yticks(range(len(notes_vocab))); a2.set_yticklabels(notes_vocab, fontsize
 a2.set_xlabel("position in the sequence"); a2.set_title("P(next note) at each position")
 
 plt.tight_layout(); plt.show()
+'''
+
+C["export_transformer"] = '''
+# Save outputs for the lab app: generated MIDI, attention weights and the loss curve
+import os, json
+from fractions import Fraction
+from music21 import stream, note
+os.makedirs("assets", exist_ok=True)
+
+def tokens_to_midi(notes, durs, path):
+    s = stream.Stream()
+    for n, d in zip(notes, durs):
+        try:
+            ql = float(Fraction(d))
+        except (ValueError, ZeroDivisionError):
+            continue
+        if ql <= 0:
+            continue                                  # START, key and time-signature labels
+        if n == "REST":
+            s.append(note.Rest(quarterLength=ql))
+        else:
+            try:
+                s.append(note.Note(n, quarterLength=ql))
+            except Exception:
+                continue                              # skip [UNK] and other labels
+    s.write("midi", fp=path)
+
+for t in [0.5, 1.0, 1.5]:
+    n, d = generate(max_tokens=120, temperature=t)
+    tokens_to_midi(n, d, f"assets/transformer_t{t}.mid")
+
+L = min(SEQ_LEN, len(gen_notes))
+att = att_model.predict([notes_vec([" ".join(gen_notes[:L])]),
+                         durs_vec([" ".join(gen_durs[:L])])], verbose=0)[0].mean(axis=0)
+np.savez("assets/attention.npz", att=att, tokens=np.array(gen_notes[:L]))
+json.dump({"loss": [float(v) for v in history.history["loss"]]},
+          open("assets/transformer_loss.json", "w"))
+
+!zip -qr assets.zip assets
+from google.colab import files
+files.download("assets.zip")   # unzip and upload the assets folder to the app's GitHub repo
 '''
 
 C["polyphony"] = '''
@@ -821,9 +1090,11 @@ def train_step(real):
 train_data = (tf.data.Dataset.from_tensor_slices(data.astype("float32"))
               .shuffle(2000).batch(BATCH, drop_remainder=True))
 
+c_hist, g_hist = [], []
 for epoch in range(EPOCHS):
     for real in train_data:
         c_loss, g_loss = train_step(real)
+    c_hist.append(float(c_loss)); g_hist.append(float(g_loss))
     if epoch % 10 == 0:
         print(f"epoch {epoch:3d}   critic loss {float(c_loss):8.3f}   generator loss {float(g_loss):8.3f}")
 
@@ -833,6 +1104,44 @@ midi_notes = sample.argmax(axis=2) + LOWEST                    # [2, 16, 4]: S A
 print(midi_notes[0, :8])                                       # first 8 steps of bar 1
 '''
 
+C["export_musegan"] = '''
+# Save outputs for the lab app: generated chorales, losses and critic scores
+import os, json
+from music21 import stream, note
+os.makedirs("assets", exist_ok=True)
+STEP = 4 / N_STEPS                       # 16 steps per 4-beat bar = 0.25 beat per step
+
+def roll_to_midi(roll, path):
+    """roll [bars, steps, pitches, voices] -> a four-part score. Repeated pitches merge."""
+    score = stream.Score()
+    pitches = roll.argmax(axis=2).reshape(-1, N_TRACKS)    # [time, voices]
+    for v in range(N_TRACKS):
+        part, seq, t = stream.Part(), pitches[:, v], 0
+        while t < len(seq):
+            u = t
+            while u + 1 < len(seq) and seq[u + 1] == seq[t]:
+                u += 1
+            part.append(note.Note(int(seq[t]) + LOWEST, quarterLength=(u - t + 1) * STEP))
+            t = u + 1
+        score.insert(0, part)
+    score.write("midi", fp=path)
+
+samples = generator(rand_z(4), training=False).numpy()
+for i, roll in enumerate(samples):
+    roll_to_midi(roll, f"assets/musegan_sample_{i + 1}.mid")
+
+real = data[:64].astype("float32")
+fake = generator(rand_z(64), training=False)
+json.dump({"critic_loss": c_hist, "generator_loss": g_hist,
+           "critic_real": critic(real).numpy().ravel().tolist(),
+           "critic_fake": critic(fake).numpy().ravel().tolist()},
+          open("assets/musegan_stats.json", "w"))
+
+!zip -qr assets.zip assets
+from google.colab import files
+files.download("assets.zip")   # unzip and upload the assets folder to the app's GitHub repo
+'''
+
 FULL_NOTEBOOK = "\n\n".join(f"# ===== {k} =====\n{v.strip()}" for k, v in C.items())
 
 
@@ -840,563 +1149,462 @@ FULL_NOTEBOOK = "\n\n".join(f"# ===== {k} =====\n{v.strip()}" for k, v in C.item
 P1, P2 = "Part 1 · Transformer", "Part 2 · MuseGAN"
 
 
+def piece_line(label, score):
+    names = part_names(score)
+    st.markdown(f'<div class="sec-sub">Now using <b>{_html.escape(label)}</b> · '
+                f'{len(names)} voices · change it in the sidebar</div>', unsafe_allow_html=True)
+
+
 def page_home():
-    hero("Music Generation Code Lab",
-         "Teach a computer to write Bach, two ways. Every step has a live demo you can try in "
-         "the browser and the full Python code to run in Colab.",
-         ["Start here", "Chapter 11 · Generative Deep Learning", "OVERVIEW"])
-    c1, c2, c3 = st.columns(3)
+    st.markdown('<div class="ptitle" style="margin-top:8px;">Music Generation Code Lab</div>'
+                '<div class="psub">Two ways to teach a computer to write Bach.</div>'
+                '<div class="phr"></div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2, gap="large")
+    seq = "".join(f'<span class="mini-chip">{t}</span>' for t in
+                  ["START", "G3", "D3", "B3", "A3", "B3", "D3", "…"])
+    cells = "".join(f'<span class="mini-cell{" on" + str(v) if v else ""}"></span>'
+                    for v in [0, 0, 1, 1, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 3, 3, 4, 4, 4, 4, 0, 0, 0, 0])
     with c1:
-        feat("🎼", "Live demos", "Parse real Bach, build tokens, draw the piano roll, and listen, "
-             "all in the browser. Nothing to install.")
+        st.markdown('<div class="home-card"><div class="path-k">Part 1</div>'
+                    '<div class="path-t">Transformer</div>'
+                    '<div class="path-s">Music as a <b>sequence</b>: predict the next note.</div>'
+                    f'<div class="mini-seq">{seq}</div></div>', unsafe_allow_html=True)
+        st.page_link(p_parse, label="Start Part 1", icon=":material/arrow_forward:")
     with c2:
-        feat("💻", "Full Colab code", "Every step has runnable Python with a copy button. Open it "
-             "when you need it, paste it into Colab, and run it on a GPU.")
-    with c3:
-        feat("🎛️", "Two ways to see music", "Part 1 reads music as a <b>sequence</b> of tokens. "
-             "Part 2 draws music as an <b>image</b>.")
-
-    section("Two models, two ways to see music")
-    p1, p2 = st.columns(2)
-    with p1:
-        st.markdown(
-            '<div class="path"><div class="path-k">Part 1</div>'
-            '<div class="path-t">Transformer: music as a sequence</div>'
-            '<div class="path-s">Like a language model that predicts the next word, it predicts '
-            'the next note and how long it lasts.</div><ol>'
-            '<li>Parse MIDI with music21</li><li>Split into two streams: notes and durations</li>'
-            '<li>Turn symbols into token IDs</li><li>Cut sliding training windows</li>'
-            '<li>Add position encoding</li><li>Build and train the model</li>'
-            '<li>Generate new music</li><li>Look inside: attention and keys</li>'
-            '<li>Polyphony: several notes at once</li></ol></div>', unsafe_allow_html=True)
-    with p2:
-        st.markdown(
-            '<div class="path gan"><div class="path-k">Part 2</div>'
-            '<div class="path-t">MuseGAN: music as an image</div>'
-            '<div class="path-s">A GAN draws a whole piano roll at once: pitch up the side, time '
-            'across, one layer per voice.</div><ol start="10">'
-            '<li>Build the piano-roll tensor</li><li>Temporal network: one plan per bar</li>'
-            '<li>Bar generator: paint one bar of one voice</li>'
-            '<li>Full generator: every bar, every voice</li><li>Critic: score how real it looks</li>'
-            '<li>WGAN-GP training</li></ol></div>', unsafe_allow_html=True)
-
-    section("How each page works")
-    s1, s2, s3 = st.columns(3)
-    for col, n, t, b in [
-        (s1, 1, "Read the idea", "A short explanation, the key points, and a small example."),
-        (s2, 2, "Try the live demo", "Real Bach data, processed right here. Change a setting and "
-                                     "watch what happens."),
-        (s3, 3, "Open the Colab code", "Click the code panel to unfold it, copy it, and run it "
-                                       "in Colab with a GPU.")]:
-        with col:
-            st.markdown(f'<div class="step"><div class="step-n">{n}</div><div class="step-t">{t}</div>'
-                        f'<div class="step-b">{b}</div></div>', unsafe_allow_html=True)
-
-    section("Before you start")
-    points(["Open a new **Colab** notebook and switch the runtime to a **GPU**.",
-            "Run the **Setup and data** page first. It installs music21 and loads the Bach scores.",
-            "Then follow the pages in order with the menu on the left, or the **Back / Next** "
-            "buttons at the bottom of each page."], "Checklist", "green")
-    st.download_button("⬇  Download the whole notebook (.py)", FULL_NOTEBOOK,
-                       file_name="chapter11_music.py", mime="text/x-python")
+        st.markdown('<div class="home-card gan"><div class="path-k">Part 2</div>'
+                    '<div class="path-t">MuseGAN</div>'
+                    '<div class="path-s">Music as an <b>image</b>: draw the whole piano roll.</div>'
+                    f'<div class="mini-grid">{cells}</div></div>', unsafe_allow_html=True)
+        st.page_link(p_mdata, label="Start Part 2", icon=":material/arrow_forward:")
     footer_nav(page_home)
 
 
 def page_setup():
-    hero("Setup and data",
-         "Install the libraries and load the Bach scores. Run these cells first in Colab.",
+    hero("Setup", "Run these cells first in a Colab notebook with a GPU.",
          ["Start here", "Setup", "COLAB SETUP"])
-    points(["**music21** reads and writes music files and ships hundreds of Bach scores.",
-            "**TensorFlow / Keras** builds and trains both models.",
-            "Use a **GPU runtime** in Colab: Runtime → Change runtime type → GPU."],
-           "What you need")
-    section("1. Install and import")
-    colab_code(C["setup"], "Install and import")
-    section("2. Get the data", "music21 already includes the Bach scores, so there is nothing to "
-                               "download.")
-    colab_code(C["download"], "Load the Bach scores")
-    section("3. Optional: sheet music with MuseScore",
-            "music21 draws real notation by calling MuseScore. Skip this if `show('text')` is enough.")
-    colab_code(C["musescore"], "Install MuseScore in Colab")
-    callout("concept", "If apt shows 404 errors",
-            "That is Colab's stale package cache. The <code>apt-get update</code> line in the cell "
-            "fixes it. And <code>score.show('text')</code> always works with no install at all.")
+    colab_code(C["setup"], "1. Install and import")
+    colab_code(C["download"], "2. Load the Bach scores (no download needed)")
+    colab_code(C["musescore"], "3. Optional: sheet music with MuseScore")
     footer_nav(page_setup)
 
 
 def page_parse():
-    hero("Parse MIDI with music21",
-         "Turn a music file into a list of timed events: the bridge from music to data.",
+    hero("Parse MIDI", "A music file becomes a list of timed events.",
          [P1, "Step 1 of 15", "LIVE DEMO"])
-    lead("A MIDI file is a list of instructions: which note, when it starts, how long it lasts. "
-         "`music21` reads those instructions and gives us back **objects we can loop over in "
-         "Python**.")
-    points(["Each object has a **type** (Note, Rest, Chord, KeySignature, ...) and an **offset**: "
-            "when it happens, in beats.",
-            "A note knows its **pitch** (like `G3`) and its **duration** (like `1.0` beat).",
-            "From here on, the music is just data."])
     try:
-        score = load_score()
-        st.info(f"Loaded a real Bach chorale with {len(score.parts)} voices "
-                   f"({', '.join(p.partName or '?' for p in score.parts)}).")
-        section("Live: the first events in the score")
-        rows = []
-        for el in list(score.recurse())[:24]:
-            rows.append({"offset (beat)": round(float(el.offset), 2),
-                         "type": el.__class__.__name__, "value": str(el)[:44]})
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, height=300)
-        with st.expander("How to read this table"):
-            st.markdown(
-                "- **offset (beat):** when the object happens, in beats from the start. `0.0` is "
-                "the very beginning.\n"
-                "- **type:** what kind of object it is. The first rows are setup (`Instrument`, "
-                "`Clef`, `KeySignature`, `TimeSignature`). After that, the real `Note`, `Chord` "
-                "and `Rest` objects begin.\n"
-                "- **value:** the content, such as a pitch `C5`, a key `f# minor`, or a time "
-                "signature `4/4`.")
-        callout("concept", "Which Bach?",
-                "The book trains on the J.S. Bach <b>cello suites</b>. This app uses the Bach "
-                "<b>chorales</b> that ship with music21, so everything runs with no download. "
-                "The pipeline is exactly the same; only the data changes.")
-        section("Live: hear the top line", "At each moment we keep only the highest note: one "
-                                           "melody, one note at a time.")
-        st.audio(synth_wav(top_line(score, 48)))
-        with st.expander("What exactly is playing?"):
-            st.markdown(
-                "- The chorale has **four voices** singing at once.\n"
-                "- We keep just the **top note at each step**, which gives one melodic line "
-                "(**monophonic**).\n"
-                "- That is on purpose: the Part 1 Transformer learns a single line first, so this "
-                "is the signal it trains on.\n"
-                "- The plain tone can sound beepy. We are showing the *notes*, not a real "
-                "instrument.")
-        section("Optional: sheet music",
-                "Drawing notation needs MuseScore installed on the machine running this app. "
-                "Everything else works without it.")
-        mpath = st.text_input("MuseScore executable path (optional)", value=guess_mscore(),
-                              placeholder=r"C:\Program Files\MuseScore 4\bin\MuseScore4.exe")
-        if st.button("Render the first bars"):
-            if not mpath:
-                st.info("MuseScore was not found, so sheet music is off. Install it from "
-                        "musescore.org and enter its path, or use the MuseScore cell in Colab.")
-            else:
-                with st.spinner("Rendering with MuseScore..."):
-                    try:
-                        from music21 import environment
-                        us = environment.UserSettings()
-                        us["musescoreDirectPNGPath"] = mpath
-                        us["musicxmlPath"] = mpath
-                        fp = score.measures(1, 4).write("musicxml.png")
-                        st.image(str(fp), caption="First four bars, rendered by MuseScore")
-                    except Exception as ex:
-                        st.warning(f"Could not render notation ({ex}). Check the path, or install "
-                                   "MuseScore from musescore.org.")
+        label, score = current_piece()
+        piece_line(label, score)
+        names = part_names(score)
+        pick = st.multiselect("Voices to play", names, default=names)
+        idx = [names.index(n) for n in pick] or [0]
+        midi_player(parts_midi(score, idx), "parse")
+        st.pyplot(note_roll(score, idx))
+        with st.expander("The events music21 sees"):
+            n = st.slider("How many events", 10, 120, 30)
+            rows = [{"offset (beat)": round(float(el.offset), 2), "type": el.__class__.__name__,
+                     "value": str(el)[:44]} for el in list(score.recurse())[:n]]
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, height=320)
     except Exception as e:
-        st.warning(f"Live parse unavailable here ({e}). The Colab code below still works.")
-    section("Colab code")
+        st.warning(f"Live demo unavailable here ({e}).")
     colab_code(C["parse"], "Parse every score into notes and durations")
     footer_nav(page_parse)
 
 
 def page_streams():
-    hero("Two streams: notes and durations",
-         "Split the music into two lists that line up: what plays, and for how long.",
+    hero("Two streams", "Every event becomes a note and a duration, side by side.",
          [P1, "Step 2 of 15", "LIVE DEMO"])
-    lead("Every musical event carries **two facts**: which note, and how long it lasts. So we keep "
-         "**two lists that line up** position by position.")
-    points(["**Notes:** the pitch at each step, or `REST` for silence.",
-            "**Durations:** how many beats each event lasts.",
-            "The key and time signature go at the front with duration `0.0`, because they are "
-            "labels, not sounds."])
-    callout("example", "Example",
-            "G3 for 1 beat, then silence for 1 beat, then A3 for 2 beats:<br><br>"
-            "<b>notes</b> = [G3, REST, A3] &nbsp;&nbsp; <b>durations</b> = [1.0, 1.0, 2.0]"
-            "<br><br>Read the two lists column by column and you get the music back.")
     try:
-        score = load_score()
-        notes, durs = to_streams(score, limit=40)
-        section("Live: the two streams from a real chorale")
-        st.markdown("**notes**"); st.code("  ".join(notes[:36]) + " ...", language=None)
-        st.markdown("**durations**"); st.code("  ".join(durs[:36]) + " ...", language=None)
+        label, score = current_piece()
+        piece_line(label, score)
+        notes, durs = to_streams(score)
+        n = st.slider("Events to show", 6, 30, 14)
+        st.markdown("**notes** (top) and **durations** (bottom)")
+        chips(notes[:n], sub=durs[:n])
+        st.markdown("**Play the melody these two lists describe**")
+        midi_player(tokens_midi(notes[:120], durs[:120]), "streams")
     except Exception as e:
-        st.warning(f"Live view unavailable here ({e}).")
-    section("Colab code")
+        st.warning(f"Live demo unavailable here ({e}).")
     colab_code(C["streams"], "Build the two streams")
     footer_nav(page_streams)
 
 
 def page_tokenize():
-    hero("Tokenization: two vocabularies",
-         "Give every symbol an integer ID: one dictionary for notes, one for durations.",
-         [P1, "Step 3 of 15", "LIVE DEMO"])
-    lead("A neural network only understands **numbers**, not text like `G3`. So we build a "
-         "dictionary that gives every distinct symbol its own integer ID.")
-    points(["We build it **twice**: one vocabulary for notes, one for durations.",
-            "IDs `0` and `1` are reserved for padding and unknown tokens (`[UNK]`).",
-            "The rest are ordered by **frequency**: the most common token gets ID `2`.",
-            "The numbers are just labels. The model learns what they mean from the data."])
-    callout("example", "Example",
-            "A text tokenizer turns 'the cat sat' into [5, 8, 2]. Our music tokenizer turns "
-            "[G3, REST, A3] into something like [17, 6, 25].")
+    hero("Tokenization", "Every symbol gets an integer ID. One vocabulary for notes, one for "
+                         "durations.", [P1, "Step 3 of 15", "LIVE DEMO"])
     try:
-        score = load_score()
+        label, score = current_piece()
+        piece_line(label, score)
         notes, durs = to_streams(score)
         from collections import Counter
-        # same order as TextVectorization: padding, [UNK], then most frequent first
         nvocab = ["", "[UNK]"] + [t for t, _ in Counter(notes).most_common()]
         dvocab = ["", "[UNK]"] + [t for t, _ in Counter(durs).most_common()]
         nid = {t: i for i, t in enumerate(nvocab)}
-        section("Live: note IDs from a real chorale")
-        cc1, cc2 = st.columns(2)
-        cc1.metric("note vocabulary", len(nvocab))
-        cc2.metric("duration vocabulary", len(dvocab))
-        demo = notes[:12]
-        st.dataframe(pd.DataFrame({"note token": demo, "id": [nid[t] for t in demo]}),
-                     use_container_width=True, height=300)
-        st.caption("This table uses one chorale. Colab builds the vocabulary from the whole "
-                   "corpus, so the IDs there will differ.")
+        did = {t: i for i, t in enumerate(dvocab)}
+        m1, m2 = st.columns(2)
+        m1.metric("note vocabulary", len(nvocab))
+        m2.metric("duration vocabulary", len(dvocab))
+        n = st.slider("Events to show", 6, 24, 12)
+        st.markdown("**note → ID**")
+        chips(notes[:n], sub=[nid[t] for t in notes[:n]])
+        st.markdown("**duration → ID**")
+        chips(durs[:n], color="#E8952F", fill="#fff4e6", sub=[did[t] for t in durs[:n]],
+              sub_color="#3E5BD6")
+        top = Counter(notes).most_common(15)
+        fig, ax = plt.subplots(figsize=(10, 2.6))
+        ax.bar([t for t, _ in top], [c for _, c in top], color=INDIGO)
+        ax.set_title("Most common note tokens (they get the smallest IDs)", fontsize=10)
+        ax.tick_params(axis="x", labelsize=8, rotation=45)
+        for side in ["top", "right"]:
+            ax.spines[side].set_visible(False)
+        fig.tight_layout(); st.pyplot(fig)
+        st.caption("IDs 0 and 1 are reserved for padding and [UNK]. Colab builds the vocabulary "
+                   "from all pieces, so its IDs differ from this one piece.")
     except Exception as e:
-        st.warning(f"Live view unavailable here ({e}).")
-    section("Colab code")
+        st.warning(f"Live demo unavailable here ({e}).")
     colab_code(C["tokenize"], "Build the two vocabularies")
     footer_nav(page_tokenize)
 
 
 def page_window():
-    hero("Sliding windows",
-         "Cut each piece into many small 'predict the next event' examples.",
+    hero("Sliding windows", "Cut each piece into fixed-size training examples.",
          [P1, "Step 4 of 15", "LIVE DEMO"])
-    lead("Pieces have different lengths, but the model needs inputs of **one fixed size**. So we "
-         "slide a window across each piece and cut out many training examples.")
-    points(["**Window size:** how many events the model sees at once. The book uses 50.",
-            "**Stride:** how far the window moves each time. Here, 1 event.",
-            "**Overlap:** events shared by neighboring windows = window size − stride.",
-            "**Target:** the same window shifted one step to the right, so the model practices a "
-            "next-event guess at every position."], "Three choices you make in any sequence project")
-    callout("example", "Example",
-            "From G3 D3 B3 A3 B3 with a window of 3:<br><br>"
-            "input <b>[G3 D3 B3]</b> &rarr; target <b>[D3 B3 A3]</b><br>"
-            "slide by one: input <b>[D3 B3 A3]</b> &rarr; target <b>[B3 A3 B3]</b><br><br>"
-            "The note list and the duration list slide together, so they stay aligned.")
     try:
-        score = load_score()
-        notes, durs = to_streams(score)
-        rows = [{"window (input)": " ".join(notes[i:i + 6]),
-                 "target (shifted by one)": " ".join(notes[i + 1:i + 7]),
-                 "next event": notes[i + 6]} for i in range(3)]
-        section("Live: windows from a real chorale")
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        label, score = current_piece()
+        piece_line(label, score)
+        notes, _ = to_streams(score)
+        c1, c2 = st.columns(2)
+        W = c1.slider("Window size", 2, 8, 4)
+        S = c2.slider("Stride", 1, W, 1)
+        n_win = max(0, (len(notes) - 1 - W) // S + 1)
+        m1, m2, m3 = st.columns(3)
+        m1.metric("events in this piece", len(notes))
+        m2.metric("training windows", n_win)
+        m3.metric("overlap (window − stride)", max(W - S, 0))
+        span = min(len(notes), 3 * S + W + 1)
+        st.markdown("**The piece**")
+        chips(notes[:span], color="#1B2333", fill="#fff")
+        for k in range(min(3, n_win)):
+            a = k * S
+            st.markdown(f"**Window {k + 1}** · input (blue) and target (green, shifted by one)")
+            chips(notes[:span], hl=set(range(a, a + W)))
+            chips(notes[:span], color="#2E9E52", fill="#eafaf0", hl=set(range(a + 1, a + W + 1)))
     except Exception as e:
-        st.warning(f"Live view unavailable here ({e}).")
-    section("Colab code")
+        st.warning(f"Live demo unavailable here ({e}).")
     colab_code(C["window"], "Cut windows and build the dataset")
     footer_nav(page_window)
 
 
 def page_posenc():
-    hero("Position encoding",
-         "Stamp every slot with a 'where am I' signal, so order matters.",
+    hero("Position encoding", "Each slot gets its own wave pattern, so order matters.",
          [P1, "Step 5 of 15", "LIVE DEMO"])
-    lead("A Transformer looks at every token in the window **at once**, so on its own it has no "
-         "sense of order. Position encoding adds a signal that says **where** each token sits.")
-    points(["G3 B3 D3 and D3 B3 G3 use the same notes. Only the **order** differs.",
-            "**Sinusoidal:** sine and cosine waves of different speeds give each slot its own "
-            "pattern. Nothing extra to train.",
-            "It is **added** to each stream's embedding, so it has the same size: 128 numbers.",
-            "The embedding says **what** the note is. The position says **where** it is."])
-    section("Live: the sinusoidal position signal",
-            "Each column is one position, each row one number of the signal. Pick a row to see "
-            "its wave.")
-    dim = st.slider("highlight embedding dimension", 0, 31, 4)
     pos, D = 64, 32
     pe = np.zeros((pos, D))
     for p in range(pos):
         for i in range(D):
             denom = np.power(10000, (2 * (i // 2)) / D)
             pe[p, i] = np.sin(p / denom) if i % 2 == 0 else np.cos(p / denom)
-    c1, c2 = st.columns([1.3, 1])
-    with c1:
-        fig, ax = plt.subplots(figsize=(6, 3.4))
-        ax.imshow(pe.T, aspect="auto", cmap="RdBu_r", origin="lower")
-        ax.axhline(dim, color="black", lw=2)
-        ax.set_xlabel("position"); ax.set_ylabel("embedding dimension")
-        st.pyplot(fig)
-    with c2:
-        fig2, ax2 = plt.subplots(figsize=(5, 3.4))
-        ax2.plot(pe[:, dim], color=INDIGO, lw=2)
-        ax2.set_title(f"dimension {dim}"); ax2.set_xlabel("position")
-        st.pyplot(fig2)
-    st.caption("Low dimensions wiggle fast, high dimensions change slowly. Together they give "
-               "every position a unique fingerprint.")
-    section("Colab code")
+    c1, c2 = st.columns(2)
+    a = c1.slider("Position A", 0, pos - 1, 2)
+    b = c2.slider("Position B", 0, pos - 1, 38)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3.4), gridspec_kw={"width_ratios": [1.4, 1]})
+    ax1.imshow(pe.T, aspect="auto", cmap="RdBu_r", origin="lower")
+    ax1.axvline(a, color="#E8952F", lw=2.5); ax1.axvline(b, color="#2E9E52", lw=2.5)
+    ax1.set_xlabel("position"); ax1.set_ylabel("dimension"); ax1.set_title("the position table")
+    ax2.plot(pe[a], color="#E8952F", lw=2, label=f"position {a}")
+    ax2.plot(pe[b], color="#2E9E52", lw=2, label=f"position {b}")
+    ax2.set_xlabel("dimension"); ax2.set_title("same note, two positions: different signals")
+    ax2.legend(fontsize=8, frameon=False)
+    for ax in (ax1, ax2):
+        for side in ["top", "right"]:
+            ax.spines[side].set_visible(False)
+    fig.tight_layout(); st.pyplot(fig)
     colab_code(C["posenc"], "Token + position embedding layer")
     footer_nav(page_posenc)
 
 
 def page_model():
-    hero("The model: what goes in, what comes out",
-         "Two token streams in, two 'what comes next' predictions out.",
+    hero("The model", "Two token streams in, two predictions out.",
          [P1, "Step 6 of 15", "MODEL + TRAINING"])
-    lead("This is the heart of Part 1. The most important thing to be clear about is the "
-         "**input** and the **output**.")
-    io([("Input", "two windows of IDs: notes and durations, `[B, 50]` each"),
-        ("Decoder", "embed, add position, join to `[B, 50, 256]`, causal attention"),
-        ("Output", "next note `[B, 50, 59]` and next duration `[B, 50, 24]`")])
-    ci, co = st.columns(2)
-    with ci:
-        section("Input")
-        st.markdown("Two aligned windows of token **IDs**:")
-        st.code("notes: [START, G3, D3,  B3,  A3]   ->  ids [2, 17, 12, 9, 25]\n"
-                "durs:  [0.0,   1.0, 0.5, 1.0, 2.0] ->  ids [7, 4, 2, 4, 5]", language=None)
-        st.caption("Example IDs, matching the lecture slides. Real IDs come from the vocabulary "
-                   "built in Colab.")
-    with co:
-        section("Output")
-        st.markdown("At every position, **two probability lists**: next note and next duration.")
-        fig, ax = plt.subplots(figsize=(4.2, 1.9))
-        ax.bar(["G3", "A3", "B3", "C4", "D4"], [0.08, 0.55, 0.12, 0.18, 0.07], color=INDIGO)
-        ax.set_title("P(next note)", fontsize=10); ax.set_ylim(0, 0.7)
-        ax.tick_params(labelsize=8); fig.tight_layout()
-        st.pyplot(fig)
-        st.caption("Here the model is fairly sure the next note is A3.")
-    points(["Each stream gets its own **embedding** (128 numbers) plus **position**.",
-            "The two are **joined**: 128 + 128 = 256 numbers per event.",
-            "A **causal** Transformer block mixes information, looking only at the past.",
-            "The same 256 numbers go to **two output heads**: one picks the next note, one the "
-            "next duration. The loss is note loss + duration loss."], "Inside the model")
-    section("The architecture")
-    st.graphviz_chart("""
-    digraph { rankdir=TB; node [shape=box, style="rounded,filled", fillcolor="#eef2ff",
-              color="#3E5BD6", fontname=Helvetica];
-      n[label="Note IDs [B,50]"]; d[label="Duration IDs [B,50]"];
-      ne[label="Note embedding + position\\n[B,50,128]"]; de[label="Duration embedding + position\\n[B,50,128]"];
-      cat[label="Concatenate [B,50,256]", fillcolor="#f3ecfd", color="#7B3FB0"];
-      tb[label="Causal Transformer block", fillcolor="#fff6dd", color="#E8952F"];
-      no[label="Note head -> [B,50,59]"]; do[label="Duration head -> [B,50,24]", fillcolor="#fff1e2", color="#E8952F"];
-      n->ne; d->de; ne->cat; de->cat; cat->tb; tb->no; tb->do; }
-    """)
-    callout("concept", "Where training happens",
-            "The last line of the code, <code>model.fit(train_ds, epochs=20)</code>, is the "
-            "training step. It adjusts the weights so the predicted next note and duration match "
-            "the real next event in Bach. Run it on a GPU in Colab.")
-    section("Colab code")
+    c1, c2 = st.columns(2)
+    B = c1.slider("Batch size B", 1, 64, 32)
+    L = c2.slider("Window length", 10, 100, 50)
+    st.graphviz_chart(f"""
+    digraph {{ rankdir=LR; node [shape=box, style="rounded,filled", fontname=Helvetica,
+              fillcolor="#eef2ff", color="#3E5BD6"]; edge [color="#5b6474"];
+      n [label="Note IDs\\n[{B}, {L}]"]; d [label="Duration IDs\\n[{B}, {L}]", fillcolor="#fff4e6", color="#E8952F"];
+      ne [label="Embed + position\\n[{B}, {L}, 128]"]; de [label="Embed + position\\n[{B}, {L}, 128]", fillcolor="#fff4e6", color="#E8952F"];
+      c [label="Concatenate\\n[{B}, {L}, 256]", fillcolor="#f3ecfd", color="#7B3FB0"];
+      t [label="Causal decoder\\n[{B}, {L}, 256]", fillcolor="#fff6dd", color="#E8952F"];
+      no [label="Note head\\n[{B}, {L}, 59]"]; do [label="Duration head\\n[{B}, {L}, 24]", fillcolor="#fff4e6", color="#E8952F"];
+      n->ne; d->de; ne->c; de->c; c->t; t->no; t->do; }}""")
+    loss = asset("transformer_loss.json")
+    if loss:
+        vals = _json.loads(loss.read_text())["loss"]
+        fig, ax = plt.subplots(figsize=(8, 2.6))
+        ax.plot(range(1, len(vals) + 1), vals, color=INDIGO, lw=2, marker="o")
+        ax.set_xlabel("epoch"); ax.set_ylabel("loss"); ax.set_title("Training loss", fontsize=10)
+        fig.tight_layout(); st.pyplot(fig)
+    else:
+        need_assets("The training-loss curve and generated music")
     colab_code(C["model"], "Build and train the Transformer")
     footer_nav(page_model)
 
 
 def page_generate():
-    hero("Generate new music",
-         "Feed the music so far, sample the next event, append it, and repeat.",
+    hero("Generate", "Sample the next event, append it, repeat.",
          [P1, "Step 7 of 15", "LIVE DEMO"])
-    lead("Training is done. Now we **use** the model to compose. This is called **inference**.")
-    points(["Feed the events so far, starting from `START`.",
-            "The model returns the next-note and next-duration probabilities.",
-            "**Sample** one note and one duration, append them, and repeat.",
-            "Stop when the piece is long enough."], "The generation loop")
-    section("Live: temperature, the creativity dial",
-            "Low temperature plays it safe and repeats itself. High temperature takes risks. Drag "
-            "the slider and watch the probabilities change.")
     labels = ["G", "A", "Bb", "C", "D", "Eb", "F", "F#"]
     logits = np.array([3.1, 1.2, 0.4, 2.6, 1.9, 0.7, 1.4, -1.5])
-    temp = st.slider("temperature", 0.1, 2.0, 1.0, 0.05)
+    temp = st.slider("Temperature", 0.1, 2.0, 1.0, 0.05)
     probs = np.exp(logits / temp); probs /= probs.sum()
-    fig, ax = plt.subplots(figsize=(8, 3))
+    fig, ax = plt.subplots(figsize=(9, 2.8))
     ax.bar(labels, probs, color=INDIGO)
-    ax.set_ylabel("probability"); ax.set_ylim(0, 1); ax.set_title("next-note probabilities")
-    st.pyplot(fig)
-    if st.button("Sample a note"):
-        pick = int(np.random.choice(len(labels), p=probs))
-        st.info(f"sampled: {labels[pick]}")
-    st.caption("Real generation from the trained model runs in Colab with the code below.")
-    section("Colab code")
+    ax.set_ylim(0, 1); ax.set_title("next-note probabilities", fontsize=10)
+    for side in ["top", "right"]:
+        ax.spines[side].set_visible(False)
+    fig.tight_layout(); st.pyplot(fig)
+    st.caption("Low temperature: safe and repetitive. High: adventurous.")
+    section("Music the trained model wrote")
+    found = False
+    cols = st.columns(3)
+    for col, t in zip(cols, ["0.5", "1.0", "1.5"]):
+        f = asset(f"transformer_t{t}.mid")
+        if f:
+            found = True
+            with col:
+                st.markdown(f"**Temperature {t}**")
+                midi_player(f.read_bytes(), f"gen{t}", roll=False)
+    if not found:
+        need_assets("Pieces written by the trained model")
     colab_code(C["generate"], "Generate with the trained model")
+    colab_code(C["export_transformer"], "Export the results for this app")
     footer_nav(page_generate)
 
 
 def page_analysis():
-    hero("Look inside: attention and keys",
-         "Trained only to predict the next event, the model learns music theory by itself.",
+    hero("Look inside", "Where does each note look when it predicts the next one?",
          [P1, "Step 8 of 15", "THE PAYOFF"])
-    lead("Nobody told the model about keys or scales. It only learned to **predict the next "
-         "event**. Yet two heatmaps show it learned real musical structure.")
-    callout("key", "It discovered the key",
-            "In the next-note heatmap, whole pitch rows stay blank: the model avoids notes "
-            "outside the key, a rule it was never told.")
-    callout("key", "It learned where to look",
-            "In the attention map, early tokens lean on the key and time signature, and later "
-            "tokens watch recent notes and repeated patterns.")
-    points(["Run **Generate** first, so there is a sequence to analyze.",
-            "The code draws both heatmaps side by side."], "How to use the code", "green")
-    section("Colab code")
+    f = asset("attention.npz")
+    if f:
+        z = np.load(f, allow_pickle=True)
+        att, toks = z["att"], [str(t) for t in z["tokens"]]
+        try:
+            import plotly.graph_objects as go
+            fig = go.Figure(go.Heatmap(z=att, x=[f"{i}:{t}" for i, t in enumerate(toks)],
+                                       y=[f"{i}:{t}" for i, t in enumerate(toks)],
+                                       colorscale="Greens",
+                                       hovertemplate="%{y} looks at %{x}<br>weight %{z:.2f}<extra></extra>"))
+            fig.update_layout(height=620, margin=dict(l=10, r=10, t=30, b=10),
+                              yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception:
+            fig, ax = plt.subplots(figsize=(9, 8))
+            ax.imshow(att, cmap="Greens")
+            ax.set_xticks(range(len(toks))); ax.set_xticklabels(toks, rotation=90, fontsize=6)
+            ax.set_yticks(range(len(toks))); ax.set_yticklabels(toks, fontsize=6)
+            st.pyplot(fig)
+        st.caption("Row = the note making a prediction. Column = where it looked. Darker = more.")
+    else:
+        need_assets("The attention map")
     colab_code(C["analysis"], "Draw the attention and next-note heatmaps")
     footer_nav(page_analysis)
 
 
 def page_polyphony():
-    hero("Polyphony: several notes at once",
-         "Real music stacks notes. Two ways to flatten several voices into one sequence.",
+    hero("Polyphony", "Several notes at once, flattened into one token sequence.",
          [P1, "Step 9 of 15", "LIVE DEMO"])
-    lead("So far the music was **one line** (monophonic). Real music often has **several notes at "
-         "once** (polyphonic). A Transformer reads one list of tokens, so we must **flatten** "
-         "the voices into one sequence, like flattening an image into one long vector.")
-    points(["**Grid:** chop time into fixed steps and write every voice at each step.",
-            "**Event:** write instructions: note on, note off, move the clock forward.",
-            "Either way, one musical moment can take **several tokens**."], "Two ways to flatten")
-    callout("example", "Tiny example",
-            "Two voices, C and E, both held for one beat, then both stop.<br><br>"
-            "<b>Grid:</b> &nbsp; [C, E] , [C, E]<br>"
-            "<b>Event:</b> &nbsp; NOTE_ON C, NOTE_ON E, TIME_SHIFT 1 beat, NOTE_OFF C, NOTE_OFF E")
-    section("Live: the same music, two tokenizations")
-    tab1, tab2 = st.tabs(["Grid tokenization", "Event tokenization"])
-    with tab1:
-        st.markdown("Chop time into fixed steps. At each step, write every voice in a fixed order "
-                    "(soprano, alto, tenor, bass). Read it like a spreadsheet, one row at a time.")
-        st.dataframe(pd.DataFrame(
-            {"S": [74, 74, 75], "A": [70, 70, 70], "T": [65, 65, 60], "B": [58, 55, 55]}),
-            use_container_width=True)
-        st.caption("Simple and regular, but rigid about fine timing.")
-    with tab2:
-        st.markdown("Write the music as instructions: turn a note on, turn it off, wait a bit. "
-                    "Like the messages a keyboard sends.")
-        st.code("NOTE_ON<74>  NOTE_ON<70>  NOTE_ON<65>  NOTE_ON<58>\n"
-                "TIME_SHIFT<1.0>\nNOTE_OFF<58>  NOTE_ON<55>\nTIME_SHIFT<0.5>", language=None)
-        st.caption("Flexible (exact timing, triplets, loudness), but sequences get longer.")
-    callout("concept", "What changes in the model",
-            "Every event type shares <b>one vocabulary</b>, so the model needs only <b>one output "
-            "head</b>: Linear 256 &rarr; V, where V is the number of event types.")
-    section("Colab code")
+    try:
+        label, score = current_piece()
+        piece_line(label, score)
+        total = float(score.highestTime)
+        start = st.slider("Start beat (shows 4 beats)", 0, max(int(total) - 4, 0), 0, 1)
+        grid, toks = grid_and_events(score, float(start))
+        names = part_names(score)
+        m1, m2 = st.columns(2)
+        m1.metric("grid tokens", len(grid) * len(names))
+        m2.metric("event tokens", len(toks))
+        t1, t2 = st.tabs(["Grid: every voice at every step", "Event: on, off, wait"])
+        with t1:
+            st.dataframe(pd.DataFrame(grid, columns=names,
+                                      index=[f"step {i + 1}" for i in range(len(grid))]),
+                         use_container_width=True, height=420)
+        with t2:
+            def tone(t):
+                return ("#3E5BD6", "#eef2ff") if t.startswith("NOTE_ON") else (
+                    ("#E8952F", "#fff4e6") if t.startswith("NOTE_OFF") else ("#2E9E52", "#eafaf0"))
+            for chunk in [toks[i:i + 8] for i in range(0, len(toks), 8)]:
+                c = [tone(t) for t in chunk]
+                st.markdown('<div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0;">' +
+                            "".join(f'<span style="border:1.5px solid {a};background:{b};'
+                                    f'border-radius:8px;padding:4px 8px;font-size:.82rem;'
+                                    f'font-weight:700;">{_html.escape(t)}</span>'
+                                    for t, (a, b) in zip(chunk, c)) + "</div>",
+                            unsafe_allow_html=True)
+        midi_player(parts_midi(score, list(range(len(names)))), "poly", roll=False)
+    except Exception as e:
+        st.warning(f"Live demo unavailable here ({e}).")
     colab_code(C["polyphony"], "Event tokenization")
     footer_nav(page_polyphony)
 
 
 def page_musegan_data():
-    hero("The piano-roll tensor",
-         "A new view: draw the score as an image, then use convolution tools.",
+    hero("The piano-roll tensor", "Each cell is 0 or 1. Each voice is its own layer.",
          [P2, "Step 10 of 15", "LIVE DEMO"])
-    lead("MuseGAN does not read tokens. It draws the music on a **grid**: pitch up the side, time "
-         "across, and a 1 wherever a note sounds. That grid is an **image**, so convolutions work "
-         "on it.")
-    points(["**Each cell is 0 or 1**, not a brightness from 0 to 255 like a photo.",
-            "A note held for one beat = **four 1s in a row** (4 steps per beat).",
-            "**Each voice is its own layer**, like the R, G, B layers of a photo.",
-            "Before training, 0 becomes −1 and 1 becomes +1, to match the generator's tanh output."],
-           "How to read the grid")
-    section("Live: a real chorale as a piano roll")
     try:
-        st.pyplot(piano_roll_fig(load_score()))
+        label, score = current_piece()
+        piece_line(label, score)
+        names = part_names(score)
+        arr = roll_array(score)
+        pick = st.multiselect("Voice layers", names, default=names)
+        idx = [names.index(n) for n in pick] or [0]
+        zoom = st.toggle("Zoom to the pitches used", value=True)
+        show_n = st.toggle("Show the 0s and 1s", value=False)
+        used = np.where(arr[:, :, idx].sum(axis=(0, 2)) > 0)[0]
+        lo, hi = (used.min(), used.max()) if (zoom and len(used)) else (0, arr.shape[1] - 1)
+        img = np.ones((hi - lo + 1, arr.shape[0], 3))
+        from matplotlib.colors import to_rgb
+        for i in idx:
+            on = arr[:, lo:hi + 1, i].T > 0
+            img[on] = to_rgb(VOICE_COLORS[i % 6])
+        fig, ax = plt.subplots(figsize=(11, 4.2 if zoom else 6))
+        ax.imshow(img[::-1], aspect="auto", interpolation="nearest",
+                  extent=(0, arr.shape[0], lo + 24 - 0.5, hi + 24 + 0.5))
+        ax.axvline(16, color="#1B2333", lw=2)
+        ax.set_xticks(range(0, 33, 4)); ax.set_xlabel("time step (2 bars × 16)")
+        ax.set_ylabel("pitch (MIDI number)")
+        if show_n and zoom:
+            for r in range(lo, hi + 1):
+                for t in range(arr.shape[0]):
+                    v = int(arr[t, r, idx].max())
+                    ax.text(t + 0.5, r + 24, str(v), ha="center", va="center", fontsize=5.5,
+                            color="white" if v else "#b0b6c4")
+        fig.tight_layout(); st.pyplot(fig)
+        m1, m2, m3 = st.columns(3)
+        m1.metric("tensor shape", f"[2, 16, 84, {len(names)}]")
+        m2.metric("cells that are 1", int(arr.sum()))
+        m3.metric("share of 1s", f"{arr.sum() / arr.size:.1%}")
     except Exception as e:
-        st.warning(f"Live view unavailable here ({e}).")
-    callout("concept", "One training example",
-            "2 bars &times; 16 steps per bar &times; 84 pitches &times; 4 voices "
-            "&nbsp;&rarr;&nbsp; <code>[batch, 2, 16, 84, 4]</code>")
-    section("Colab code")
+        st.warning(f"Live demo unavailable here ({e}).")
     colab_code(C["musegan_data"], "Build the piano-roll training tensor")
     footer_nav(page_musegan_data)
 
 
+def shape_flow(rows, color="#3E5BD6", fill="#eef2ff"):
+    nodes = "".join(f'n{i} [label="{a}\\n{b}"];' for i, (a, b) in enumerate(rows))
+    edges = "->".join(f"n{i}" for i in range(len(rows)))
+    st.graphviz_chart(f'digraph {{ rankdir=LR; node [shape=box, style="rounded,filled", '
+                      f'fontname=Helvetica, fillcolor="{fill}", color="{color}"]; '
+                      f'edge [color="#5b6474"]; {nodes} {edges}; }}')
+
+
+def samples_block():
+    found = False
+    cols = st.columns(4)
+    for i, col in enumerate(cols, 1):
+        f = asset(f"musegan_sample_{i}.mid")
+        if f:
+            found = True
+            with col:
+                st.markdown(f"**Sample {i}**")
+                midi_player(f.read_bytes(), f"mg{i}", roll=False)
+    if not found:
+        need_assets("Chorales written by the trained MuseGAN")
+
+
 def page_temporal():
-    hero("The temporal network",
-         "Turn one random vector into one plan per bar, so the bars belong together.",
+    hero("Temporal network", "One random seed becomes one plan per bar.",
          [P2, "Step 11 of 15", "MODEL"])
-    lead("A plain GAN turns one random vector into one output. A piece has **several bars** that "
-         "should relate. The temporal network turns **one seed** into **one vector per bar**.")
-    points(["It is a **small part of the generator**, not a separate model, and draws no music.",
-            "Built from **transposed convolutions** that stretch the seed along time.",
-            "Used for **chords** (one network) and **melody** (one per voice).",
-            "Style and groove skip it, because they stay the same in every bar.",
-            "It has **no loss of its own**: it learns with the rest of the generator."])
-    callout("example", "Example (4 numbers instead of the book's 32)",
-            "chords seed [0.8, −1.2, 0.3, 0.5] &rarr; bar 1 [0.9, −0.7, 0.2, 1.1] and "
-            "bar 2 [0.4, −1.0, 0.6, −0.3]. Different, but related, because both come from one "
-            "seed. Heard as music: G major, then C major.")
-    section("Colab code")
+    shape_flow([("one seed", "[32]"), ("reshape", "[1, 1, 32]"),
+                ("transposed conv", "[2, 1, 1024]"), ("transposed conv", "[2, 1, 32]"),
+                ("one plan per bar", "[2, 32]")], "#7B3FB0", "#f3ecfd")
+    seed = st.slider("Random seed", 0, 50, 7)
+    rng = np.random.default_rng(seed)
+    z = rng.normal(size=8)
+    bars = np.stack([np.tanh(z * 0.9 + rng.normal(scale=.35, size=8)) for _ in range(2)])
+    fig, axes = plt.subplots(1, 3, figsize=(11, 2.2), sharey=True)
+    for ax, v, t, c in zip(axes, [z, bars[0], bars[1]], ["seed", "bar 1", "bar 2"],
+                           ["#5b6474", "#3E5BD6", "#2E9E52"]):
+        ax.bar(range(8), v, color=c); ax.set_title(t, fontsize=10); ax.set_xticks([])
+        for side in ["top", "right"]:
+            ax.spines[side].set_visible(False)
+    fig.tight_layout(); st.pyplot(fig)
+    st.caption("Illustration with 8 numbers instead of 32: the two bar plans differ, but both "
+               "come from the same seed.")
     colab_code(C["temporal"], "Temporal network")
     footer_nav(page_temporal)
 
 
 def page_bargen():
-    hero("The bar generator",
-         "Paint one bar for one voice, then repeat it everywhere.",
-         [P2, "Step 12 of 15", "MODEL"])
-    lead("The bar generator does one small job: **paint a single bar for a single voice**.")
-    points(["Its input joins **four pieces**: chords for this bar, style, this voice's melody for "
-            "this bar, and this voice's groove.",
-            "4 × 32 = **128 numbers** in the book.",
-            "It grows them into a grid, first along **time** (2 → 16 steps), then along **pitch** "
-            "(→ 84 rows).",
-            "There is **one bar generator per voice**, each with its own weights."],
-           "What goes in and out")
-    callout("example", "Analogy",
-            "Like a printer filling in one tile of a mosaic. Run it for every bar and every voice "
-            "to build the whole score.")
-    section("Colab code")
+    hero("Bar generator", "Paint one bar for one voice.", [P2, "Step 12 of 15", "MODEL"])
+    shape_flow([("4 inputs joined", "[128]"), ("dense + reshape", "[2, 1, 512]"),
+                ("grow time", "[16, 1, 256]"), ("grow pitch", "[16, 84, 1]"),
+                ("one bar, one voice", "[1, 16, 84, 1]")])
+    chips(["chords (this bar)", "style", "melody (this voice, this bar)", "groove (this voice)"],
+          color="#7B3FB0", fill="#f3ecfd")
+    st.caption("One bar generator per voice. Each runs once per bar.")
     colab_code(C["bargen"], "Bar generator")
     footer_nav(page_bargen)
 
 
 def page_generator():
-    hero("The full generator",
-         "Run the bar generator for every bar and every voice, then stack the results.",
+    hero("Full generator", "Every bar, every voice, stacked into one piano roll.",
          [P2, "Step 13 of 15", "MODEL"])
-    lead("Now we put the pieces together. The full generator is the **temporal networks plus the "
-         "four bar generators**.")
-    points(["**Style:** one vector, copied to every voice and every bar.",
-            "**Chords:** one per bar from the temporal network, shared by all voices.",
-            "**Groove:** one per voice, used in every bar of that voice.",
-            "**Melody:** one per voice per bar, from that voice's temporal network.",
-            "Output: one full piano roll, `[2, 16, 84, 4]`."], "The four noise inputs")
-    callout("concept", "Why keep four separate inputs?",
-            "They are all random noise. What makes them different is <b>where each one is "
-            "sent</b>. That wiring forces each input to take a job, and lets you change one "
-            "thing at a time, like a new harmony with the same voices.")
-    section("Colab code")
+    st.graphviz_chart("""
+    digraph { rankdir=LR; node [shape=box, style="rounded,filled", fontname=Helvetica];
+      edge [color="#5b6474"];
+      s [label="style", fillcolor="#e3eefb", color="#2F7FD6"];
+      c [label="chords", fillcolor="#e8f5e9", color="#2E9E52"];
+      m [label="melody x4", fillcolor="#fde7e7", color="#D63333"];
+      g [label="groove x4", fillcolor="#fdebd3", color="#E8952F"];
+      tc [label="temporal net", fillcolor="#f3ecfd", color="#7B3FB0"];
+      tm [label="temporal nets x4", fillcolor="#f3ecfd", color="#7B3FB0"];
+      bg [label="bar generators\\n4 voices x 2 bars", fillcolor="#eef2ff", color="#3E5BD6"];
+      out [label="piano roll\\n[2, 16, 84, 4]", fillcolor="#fff6dd", color="#E8952F"];
+      c->tc; m->tm; tc->bg; tm->bg; s->bg; g->bg; bg->out; }""")
+    samples_block()
     colab_code(C["generator"], "Full generator")
     footer_nav(page_generator)
 
 
 def page_critic():
-    hero("The critic",
-         "The judge: one realism score for a whole piano roll.",
-         [P2, "Step 14 of 15", "MODEL"])
-    lead("The critic looks at a whole piano roll, real Bach or a fake, and outputs **one number**: "
-         "how real does this look?")
-    points(["It is a **CNN** that reads the full `[bars, steps, pitches, voices]` block.",
-            "It outputs a **score**, not a yes/no probability (WGAN-GP).",
-            "It uses **no batch normalization**, which WGAN-GP requires.",
-            "The generator learns only from this score."])
-    callout("example", "Analogy",
-            "An art expert scoring how convincingly a forgery imitates the master.")
-    section("Colab code")
+    hero("Critic", "One realism score for a whole piano roll.", [P2, "Step 14 of 15", "MODEL"])
+    shape_flow([("piano roll", "[2, 16, 84, 4]"), ("Conv3D layers", "time and pitch"),
+                ("flatten + dense", ""), ("realism score", "[1]")], "#E8952F", "#fff4e6")
+    f = asset("musegan_stats.json")
+    if f:
+        d = _json.loads(f.read_text())
+        fig, ax = plt.subplots(figsize=(9, 2.8))
+        ax.hist(d["critic_real"], bins=20, alpha=.7, color="#2E9E52", label="real Bach")
+        ax.hist(d["critic_fake"], bins=20, alpha=.7, color="#E8952F", label="generated")
+        ax.legend(frameon=False); ax.set_xlabel("critic score"); ax.set_title("Critic scores")
+        fig.tight_layout(); st.pyplot(fig)
+    else:
+        need_assets("Critic scores for real and generated music")
     colab_code(C["critic"], "Critic")
     footer_nav(page_critic)
 
 
 def page_wgan():
-    hero("WGAN-GP training",
-         "The adversarial game from your GAN lecture, now with music.",
+    hero("WGAN-GP training", "Critic: 5 updates. Generator: 1 update. Repeat.",
          [P2, "Step 15 of 15", "TRAINING"])
-    lead("The critic and the generator **take turns**. The critic learns to tell real from fake; "
-         "the generator learns to fool it.")
-    points(["**Critic:** scores real music high and fakes low. It updates its weights **5 times**; "
-            "the generator is frozen.",
-            "**Generator:** changes so its fakes score higher. **1 update**, with its gradient "
-            "flowing back through the frozen critic.",
-            "**Gradient penalty:** keeps the critic smooth, so its advice stays useful.",
-            "**Repeat.** The fakes slowly start to look like Bach."], "One training round")
-    callout("key", "At the end",
-            "The code samples a new 2-bar chorale and reads the notes back out of the piano roll.")
-    section("Colab code")
+    f = asset("musegan_stats.json")
+    if f:
+        d = _json.loads(f.read_text())
+        fig, ax = plt.subplots(figsize=(9, 2.8))
+        ax.plot(d["critic_loss"], color="#E8952F", lw=2, label="critic loss")
+        ax.plot(d["generator_loss"], color="#3E5BD6", lw=2, label="generator loss")
+        ax.legend(frameon=False); ax.set_xlabel("epoch"); ax.set_title("Training")
+        fig.tight_layout(); st.pyplot(fig)
+    samples_block()
     colab_code(C["wgan"], "WGAN-GP training loop")
+    colab_code(C["export_musegan"], "Export the results for this app")
     footer_nav(page_wgan)
 
 
 def page_notebook():
-    hero("The whole notebook",
-         "Every code cell from every page, in order, in one file.",
+    hero("Full notebook", "Every code cell, in order, in one file.",
          ["Take it to Colab", "FULL CODE"])
-    points(["Download the file, or open the panel below and copy it.",
-            "Paste it into Colab, cell by cell, with a **GPU** runtime.",
-            "Run Part 1 first, then Part 2."], "How to use it", "green")
     st.download_button("⬇  Download the whole notebook (.py)", FULL_NOTEBOOK,
                        file_name="chapter11_music.py", mime="text/x-python")
     n = FULL_NOTEBOOK.count("\n") + 1
@@ -1415,9 +1623,16 @@ with st.sidebar:
     st.markdown('<div class="sb-brand"><div class="sb-brand-t">🎵 Music Gen Lab</div>'
                 '<div class="sb-brand-s">Transformer + MuseGAN · Chapter 11</div></div>',
                 unsafe_allow_html=True)
+    cat = bach_catalog()
+    if cat:
+        keys = list(cat)
+        st.selectbox("Bach piece", keys, index=keys.index(DEFAULT_PIECE) if DEFAULT_PIECE in keys
+                     else 0, key="piece", format_func=lambda k: k.upper().replace("BWV", "BWV "))
+    st.file_uploader("…or upload your own", type=["mid", "midi", "mxl", "musicxml", "xml"],
+                     key="upload")
 
 p_home = st.Page(page_home, title="Home", icon=":material/home:", default=True)
-p_setup = st.Page(page_setup, title="Setup and data", icon=":material/download:")
+p_setup = st.Page(page_setup, title="Setup", icon=":material/download:")
 p_parse = st.Page(page_parse, title="1. Parse MIDI", icon=":material/music_note:")
 p_streams = st.Page(page_streams, title="2. Two streams", icon=":material/list:")
 p_tokenize = st.Page(page_tokenize, title="3. Tokenization", icon=":material/tag:")
