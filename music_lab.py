@@ -19,7 +19,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Chapter 11 Music Gen Lab", page_icon="🎵", layout="wide")
+st.set_page_config(page_title="Music Gen Lab · Chapter 11", page_icon="🎵", layout="wide")
 
 AMBER, INDIGO, GREEN, GREY, INK = "#E8952F", "#3E5BD6", "#2E9E52", "#7A8194", "#1B2333"
 
@@ -27,63 +27,128 @@ AMBER, INDIGO, GREEN, GREY, INK = "#E8952F", "#3E5BD6", "#2E9E52", "#7A8194", "#
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-:root{ --brand:#3E5BD6; --amber:#E8952F; --green:#2E9E52; --ink:#1B2333; --muted:#5b6474; }
+:root{ --brand:#3E5BD6; --brand-d:#2f47b5; --amber:#E8952F; --green:#2E9E52; --ink:#1B2333;
+       --muted:#5b6474; --line:#e4e8f1; --soft:#f5f6fb; }
 html, body, [class*="css"], .stApp { font-family:'Inter', system-ui, -apple-system, sans-serif; }
-.stApp { background:#f5f6fb; }
-.block-container { padding-top:1.1rem; max-width:1090px; }
+.stApp { background:var(--soft); }
+.block-container { padding-top:1.2rem; padding-bottom:3rem; max-width:1140px; }
+p, li { line-height:1.65; }
 
-/* hero header */
-.hero { border-radius:16px; padding:22px 28px; margin:2px 0 20px; color:#fff;
-        box-shadow:0 10px 26px rgba(20,30,60,.14); }
+/* ---------- hero header ---------- */
+.hero { border-radius:18px; padding:26px 30px 24px; margin:2px 0 22px; color:#fff;
+        box-shadow:0 12px 30px rgba(20,30,60,.16); position:relative; overflow:hidden; }
+.hero:after { content:""; position:absolute; right:-60px; top:-60px; width:220px; height:220px;
+              border-radius:50%; background:rgba(255,255,255,.09); }
 .hero-indigo{ background:linear-gradient(120deg,#3E5BD6,#6d84ec); }
-.hero-green { background:linear-gradient(120deg,#1f9d57,#38b76f); }
-.hero-amber { background:linear-gradient(120deg,#df7d1c,#f0a63e); }
-.hero-slate { background:linear-gradient(120deg,#2a3350,#48557d); }
+.hero-green { background:linear-gradient(120deg,#1f9d57,#3cbf78); }
+.hero-amber { background:linear-gradient(120deg,#df7d1c,#f2ad4a); }
+.hero-slate { background:linear-gradient(120deg,#1B2333,#3d4a72); }
+.hero-tags { display:flex; flex-wrap:wrap; gap:8px; }
 .hero-tag { display:inline-block; background:rgba(255,255,255,.22); border-radius:999px;
-            padding:3px 13px; font-size:.72rem; font-weight:700; letter-spacing:.07em; }
-.hero-title { font-size:1.95rem; font-weight:800; margin:11px 0 4px; line-height:1.12; }
-.hero-sub { font-size:1.03rem; opacity:.96; }
+            padding:4px 13px; font-size:.72rem; font-weight:700; letter-spacing:.08em; }
+.hero-title { font-size:2.1rem; font-weight:800; margin:12px 0 6px; line-height:1.12;
+              letter-spacing:-.01em; }
+.hero-sub { font-size:1.08rem; opacity:.96; max-width:820px; line-height:1.5; }
 
-/* section subheader */
-.sec { font-size:1.06rem; font-weight:700; color:var(--ink); margin:22px 0 8px;
-       display:flex; align-items:center; gap:9px; }
-.sec-bar { width:6px; height:19px; border-radius:3px; background:var(--brand); }
+/* ---------- section heading ---------- */
+.sec { font-size:1.22rem; font-weight:800; color:var(--ink); margin:30px 0 10px;
+       display:flex; align-items:center; gap:10px; letter-spacing:-.005em; }
+.sec-bar { width:6px; height:22px; border-radius:3px; background:var(--brand); flex:none; }
+.sec-sub { color:var(--muted); font-size:.95rem; margin:-4px 0 12px 16px; }
 
-/* callouts */
-.cal { border-radius:12px; padding:14px 16px 14px 18px; margin:12px 0; border-left:5px solid;
+/* ---------- lead paragraph ---------- */
+.lead { font-size:1.1rem; color:#2a3040; line-height:1.7; background:#fff;
+        border:1px solid var(--line); border-radius:14px; padding:18px 22px; margin:0 0 14px;
+        box-shadow:0 1px 5px rgba(20,30,60,.04); }
+.lead b { color:var(--ink); }
+
+/* ---------- key points ---------- */
+.pts { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px 22px 10px;
+       margin:12px 0; box-shadow:0 1px 5px rgba(20,30,60,.04); }
+.pts-t { font-size:.74rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+         color:var(--brand); margin-bottom:6px; }
+.pts ul { margin:0; padding-left:1.15rem; }
+.pts li { margin:0 0 7px; font-size:1.01rem; color:#2a3040; }
+.pts li::marker { color:var(--brand); }
+.pts.green .pts-t { color:#1f8046; } .pts.green li::marker { color:var(--green); }
+.pts.amber .pts-t { color:#c67614; } .pts.amber li::marker { color:var(--amber); }
+
+/* ---------- callouts ---------- */
+.cal { border-radius:14px; padding:15px 18px 15px 20px; margin:12px 0; border-left:6px solid;
        background:#fff; box-shadow:0 1px 5px rgba(20,30,60,.05); }
-.cal .cal-label { display:block; font-size:.7rem; font-weight:800; letter-spacing:.07em;
+.cal .cal-label { display:block; font-size:.72rem; font-weight:800; letter-spacing:.08em;
                   text-transform:uppercase; margin-bottom:6px; }
-.cal .cal-body { font-size:.99rem; color:#2a3040; line-height:1.6; }
+.cal .cal-body { font-size:1.01rem; color:#2a3040; line-height:1.65; }
 .cal.example { border-color:var(--amber); background:#fff8ef; }
 .cal.example .cal-label { color:#c67614; }
 .cal.concept { border-color:var(--brand); background:#eef2ff; }
 .cal.concept .cal-label { color:var(--brand); }
 .cal.key { border-color:var(--green); background:#eafaf0; }
 .cal.key .cal-label { color:#1f8046; }
-.cal code { background:rgba(0,0,0,.06); padding:1px 6px; border-radius:5px; font-size:.9em; }
+code { background:rgba(62,91,214,.09); color:#2a3a8f; padding:1px 6px; border-radius:5px;
+       font-size:.9em; }
 
-/* feature cards (home) */
-.feat { background:#fff; border:1px solid #e7ebf3; border-radius:14px; padding:18px 18px;
-        box-shadow:0 2px 8px rgba(20,30,60,.05); height:100%; }
-.feat-t { font-weight:700; font-size:1.02rem; color:var(--ink); margin-bottom:6px; }
-.feat-b { font-size:.92rem; color:var(--muted); line-height:1.5; }
+/* ---------- in / out boxes ---------- */
+.io { display:flex; gap:14px; align-items:stretch; margin:10px 0; flex-wrap:wrap; }
+.io-box { flex:1; min-width:220px; background:#fff; border:1px solid var(--line); border-radius:14px;
+          padding:14px 16px; box-shadow:0 1px 5px rgba(20,30,60,.04); }
+.io-lab { font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+          color:var(--muted); margin-bottom:4px; }
+.io-val { font-size:1.02rem; color:var(--ink); font-weight:600; }
+.io-arrow { align-self:center; font-size:1.6rem; color:var(--brand); font-weight:800; }
 
-/* code label */
-.codehead { font-size:.78rem; font-weight:800; color:var(--muted); text-transform:uppercase;
-            letter-spacing:.06em; margin:16px 0 4px; }
+/* ---------- home cards ---------- */
+.feat { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px 20px;
+        box-shadow:0 2px 10px rgba(20,30,60,.05); height:100%; }
+.feat-i { font-size:1.6rem; }
+.feat-t { font-weight:800; font-size:1.08rem; color:var(--ink); margin:6px 0 6px; }
+.feat-b { font-size:.96rem; color:var(--muted); line-height:1.55; }
+.path { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px 22px;
+        box-shadow:0 2px 10px rgba(20,30,60,.05); height:100%; border-top:6px solid var(--brand); }
+.path.gan { border-top-color:var(--amber); }
+.path-k { font-size:.74rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+          color:var(--brand); }
+.path.gan .path-k { color:#c67614; }
+.path-t { font-size:1.3rem; font-weight:800; color:var(--ink); margin:4px 0 4px; }
+.path-s { color:var(--muted); font-size:.96rem; margin-bottom:10px; }
+.path ol { margin:0; padding-left:1.3rem; }
+.path li { margin:0 0 4px; color:#2a3040; font-size:.97rem; }
+.step { background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px;
+        text-align:center; height:100%; box-shadow:0 2px 10px rgba(20,30,60,.05); }
+.step-n { width:38px; height:38px; border-radius:50%; background:var(--brand); color:#fff;
+          font-weight:800; display:inline-flex; align-items:center; justify-content:center;
+          font-size:1.05rem; }
+.step-t { font-weight:800; color:var(--ink); margin:10px 0 4px; font-size:1.04rem; }
+.step-b { color:var(--muted); font-size:.93rem; line-height:1.5; }
 
-/* widgets */
+/* ---------- widgets ---------- */
 .stButton>button, .stDownloadButton>button { background:var(--brand); color:#fff; border:0;
-        border-radius:9px; padding:8px 18px; font-weight:600; }
-.stButton>button:hover, .stDownloadButton>button:hover { background:#3350c4; color:#fff; }
-[data-testid="stMetric"] { background:#fff; border:1px solid #e7ebf3; border-radius:12px;
+        border-radius:10px; padding:9px 20px; font-weight:700; }
+.stButton>button:hover, .stDownloadButton>button:hover { background:var(--brand-d); color:#fff; }
+[data-testid="stMetric"] { background:#fff; border:1px solid var(--line); border-radius:12px;
         padding:14px 16px; box-shadow:0 1px 4px rgba(20,30,60,.04); }
-[data-testid="stExpander"] { border:1px solid #e7ebf3; border-radius:12px; background:#fff; }
-[data-testid="stExpander"] summary { font-weight:600; color:var(--ink); }
-[data-testid="stSidebar"] { background:#ffffff; border-right:1px solid #e7ebf3; }
-[data-testid="stSidebarNav"] a[aria-current="page"] { background:#eef2ff; font-weight:700; }
-hr { margin:1.1rem 0; }
+[data-testid="stExpander"] { border:1px solid var(--line); border-radius:14px; background:#fff;
+        box-shadow:0 1px 5px rgba(20,30,60,.04); }
+[data-testid="stExpander"] summary { font-weight:700; color:var(--ink); font-size:1rem; }
+[data-testid="stExpander"] summary:hover { color:var(--brand); }
+hr { margin:1.3rem 0; }
+
+/* ---------- sidebar menu ---------- */
+[data-testid="stSidebar"] { background:#ffffff; border-right:1px solid var(--line); }
+.sb-brand { background:linear-gradient(120deg,#3E5BD6,#6d84ec); color:#fff; border-radius:14px;
+            padding:14px 16px; margin:0 0 6px; }
+.sb-brand-t { font-weight:800; font-size:1.08rem; }
+.sb-brand-s { font-size:.8rem; opacity:.92; }
+[data-testid="stNavSectionHeader"] { color:#c67614 !important; font-weight:800 !important;
+        font-size:.74rem !important; letter-spacing:.08em; text-transform:uppercase;
+        margin-top:14px !important; }
+[data-testid="stSidebarNavLink"] { border-radius:10px; padding:6px 10px !important; margin:1px 0; }
+[data-testid="stSidebarNavLink"] span { font-size:.98rem !important; font-weight:600; color:#2a3040; }
+[data-testid="stSidebarNavLink"]:hover { background:#eef2ff; }
+[data-testid="stSidebarNavLink"][aria-current="page"] { background:var(--brand); }
+[data-testid="stSidebarNavLink"][aria-current="page"] span { color:#fff !important; }
+[data-testid="stSidebarNav"] a[aria-current="page"] { background:var(--brand); }
+[data-testid="stSidebarNav"] a[aria-current="page"] span { color:#fff !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -177,7 +242,7 @@ def piano_roll_fig(score):
             max_off = max(max_off, float(n.offset) + float(n.duration.quarterLength))
     ax.set_xlim(0, min(max_off, 24)); ax.set_ylim(48, 82)
     ax.set_xlabel("time (beats)"); ax.set_ylabel("pitch (MIDI number)")
-    ax.set_title("Piano roll: pitch x time, one colour per voice")
+    ax.set_title("Piano roll: pitch x time, one color per voice")
     fig.tight_layout()
     return fig
 
@@ -201,15 +266,42 @@ def guess_mscore():
 
 
 # ============================================================ UI components
-def hero(title, subtitle, tag, accent="indigo"):
+import re as _re
+import html as _html
+
+
+def _inline(md):
+    """Tiny markdown for HTML cards: **bold**, `code`, and the text itself escaped."""
+    s = _html.escape(md, quote=False)
+    s = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s)
+    s = _re.sub(r"`(.+?)`", r"<code>\1</code>", s)
+    return s
+
+
+def hero(title, subtitle, tags, accent="indigo"):
+    tags = [tags] if isinstance(tags, str) else tags
+    chips = "".join(f'<span class="hero-tag">{t}</span>' for t in tags)
     st.markdown(
-        f'<div class="hero hero-{accent}"><div class="hero-tag">{tag}</div>'
+        f'<div class="hero hero-{accent}"><div class="hero-tags">{chips}</div>'
         f'<div class="hero-title">{title}</div><div class="hero-sub">{subtitle}</div></div>',
         unsafe_allow_html=True)
 
 
-def section(title):
+def section(title, sub=None):
     st.markdown(f'<div class="sec"><span class="sec-bar"></span>{title}</div>',
+                unsafe_allow_html=True)
+    if sub:
+        st.markdown(f'<div class="sec-sub">{_inline(sub)}</div>', unsafe_allow_html=True)
+
+
+def lead(md):
+    """The opening idea of a page, in one clean card."""
+    st.markdown(f'<div class="lead">{_inline(md)}</div>', unsafe_allow_html=True)
+
+
+def points(items, title="Key ideas", tone=""):
+    lis = "".join(f"<li>{_inline(i)}</li>" for i in items)
+    st.markdown(f'<div class="pts {tone}"><div class="pts-t">{title}</div><ul>{lis}</ul></div>',
                 unsafe_allow_html=True)
 
 
@@ -218,56 +310,61 @@ def callout(kind, label, body_html):
                 f'<div class="cal-body">{body_html}</div></div>', unsafe_allow_html=True)
 
 
-def feat(title, body):
-    st.markdown(f'<div class="feat"><div class="feat-t">{title}</div>'
+def io(pairs):
+    """In -> out boxes. pairs = [(label, value), ...]."""
+    parts = []
+    for i, (lab, val) in enumerate(pairs):
+        if i:
+            parts.append('<div class="io-arrow">&rarr;</div>')
+        parts.append(f'<div class="io-box"><div class="io-lab">{lab}</div>'
+                     f'<div class="io-val">{_inline(val)}</div></div>')
+    st.markdown(f'<div class="io">{"".join(parts)}</div>', unsafe_allow_html=True)
+
+
+def feat(icon, title, body):
+    st.markdown(f'<div class="feat"><div class="feat-i">{icon}</div><div class="feat-t">{title}</div>'
                 f'<div class="feat-b">{body}</div></div>', unsafe_allow_html=True)
 
 
-def text_block(md):
-    """Explanatory text in its own clean card."""
-    with st.container(border=True):
-        st.markdown(md)
-
-
-def colab_code(block):
-    """Code in a dark Monokai 'editor' card with a working Copy button."""
-    import html as _html
+def colab_code(block, title="Colab code"):
+    """Code in a dark editor card with a Copy button, folded inside an expander."""
     from pygments import highlight
     from pygments.lexers import PythonLexer
     from pygments.formatters import HtmlFormatter
     src = block.strip("\n")
-    hl = highlight(src, PythonLexer(), HtmlFormatter(style="monokai", noclasses=True))
-    esc = _html.escape(src)
     n = src.count("\n") + 1
-    height = min(48 + n * 20 + 18, 660)
-    doc = (
-        "<!doctype html><html><head><meta charset='utf-8'><style>"
-        "*{box-sizing:border-box;} body{margin:0;font-family:Consolas,'SF Mono',monospace;}"
-        ".ed{border-radius:11px;overflow:hidden;background:#272822;border:1px solid #14150e;"
-        "box-shadow:0 6px 18px rgba(0,0,0,.22);}"
-        ".bar{background:#1d1e17;padding:8px 12px;display:flex;align-items:center;gap:7px;}"
-        ".dot{width:11px;height:11px;border-radius:50%;}"
-        ".r{background:#ff5f56}.y{background:#ffbd2e}.g{background:#27c93f}"
-        ".name{color:#9aa0a6;font-size:12px;margin-left:8px;letter-spacing:.02em;}"
-        ".copy{margin-left:auto;background:#3a3b32;color:#dfe2d6;border:0;border-radius:6px;"
-        "padding:4px 13px;font-size:12px;cursor:pointer;font-family:inherit;}"
-        ".copy:hover{background:#4b4c41;}"
-        ".highlight{background:transparent!important;margin:0;}"
-        ".highlight pre{margin:0!important;padding:14px 16px!important;overflow:auto;"
-        "font-size:13.5px;line-height:1.55;background:transparent!important;}"
-        "</style></head><body>"
-        "<div class='ed'><div class='bar'>"
-        "<span class='dot r'></span><span class='dot y'></span><span class='dot g'></span>"
-        "<span class='name'>python &nbsp;&middot;&nbsp; paste into Colab</span>"
-        "<button class='copy' onclick='cp()'>Copy</button></div>"
-        + hl +
-        "</div><textarea id='src' style='position:absolute;left:-9999px;top:0;'>" + esc + "</textarea>"
-        "<script>function cp(){var t=document.getElementById('src');t.select();"
-        "try{document.execCommand('copy');}catch(e){}"
-        "var b=document.querySelector('.copy');b.textContent='Copied!';"
-        "setTimeout(function(){b.textContent='Copy';},1200);}</script>"
-        "</body></html>")
-    components.html(doc, height=height, scrolling=True)
+    with st.expander(f"💻  {title}  ·  {n} lines  ·  click to open", expanded=False):
+        hl = highlight(src, PythonLexer(), HtmlFormatter(style="monokai", noclasses=True))
+        esc = _html.escape(src)
+        height = min(48 + n * 20 + 18, 660)
+        doc = (
+            "<!doctype html><html><head><meta charset='utf-8'><style>"
+            "*{box-sizing:border-box;} body{margin:0;font-family:Consolas,'SF Mono',monospace;}"
+            ".ed{border-radius:11px;overflow:hidden;background:#272822;border:1px solid #14150e;"
+            "box-shadow:0 6px 18px rgba(0,0,0,.22);}"
+            ".bar{background:#1d1e17;padding:8px 12px;display:flex;align-items:center;gap:7px;}"
+            ".dot{width:11px;height:11px;border-radius:50%;}"
+            ".r{background:#ff5f56}.y{background:#ffbd2e}.g{background:#27c93f}"
+            ".name{color:#9aa0a6;font-size:12px;margin-left:8px;letter-spacing:.02em;}"
+            ".copy{margin-left:auto;background:#3a3b32;color:#dfe2d6;border:0;border-radius:6px;"
+            "padding:4px 13px;font-size:12px;cursor:pointer;font-family:inherit;}"
+            ".copy:hover{background:#4b4c41;}"
+            ".highlight{background:transparent!important;margin:0;}"
+            ".highlight pre{margin:0!important;padding:14px 16px!important;overflow:auto;"
+            "font-size:13.5px;line-height:1.55;background:transparent!important;}"
+            "</style></head><body>"
+            "<div class='ed'><div class='bar'>"
+            "<span class='dot r'></span><span class='dot y'></span><span class='dot g'></span>"
+            "<span class='name'>python &nbsp;&middot;&nbsp; paste into Colab</span>"
+            "<button class='copy' onclick='cp()'>Copy</button></div>"
+            + hl +
+            "</div><textarea id='src' style='position:absolute;left:-9999px;top:0;'>" + esc + "</textarea>"
+            "<script>function cp(){var t=document.getElementById('src');t.select();"
+            "try{document.execCommand('copy');}catch(e){}"
+            "var b=document.querySelector('.copy');b.textContent='Copied!';"
+            "setTimeout(function(){b.textContent='Copy';},1200);}</script>"
+            "</body></html>")
+        components.html(doc, height=height, scrolling=True)
 
 
 def footer_nav(func):
@@ -731,65 +828,109 @@ FULL_NOTEBOOK = "\n\n".join(f"# ===== {k} =====\n{v.strip()}" for k, v in C.item
 
 
 # ============================================================ pages
+P1, P2 = "PART 1 · TRANSFORMER", "PART 2 · MUSEGAN"
+
+
 def page_home():
     hero("Music Generation Code Lab",
-         "Live demos you can run in class, plus copy-paste Colab code for every step of Chapter 11.",
-         "START HERE", "indigo")
+         "Teach a computer to write Bach, two ways. Every step has a live demo you can try in "
+         "the browser and the full Python code to run in Colab.",
+         ["START HERE", "CHAPTER 11 · GENERATIVE DEEP LEARNING"], "indigo")
     c1, c2, c3 = st.columns(3)
     with c1:
-        feat("🎼 Live demos", "Parse real Bach, build tokens, visualize the piano roll, and hear "
-             "audio, all in the browser.")
+        feat("🎼", "Live demos", "Parse real Bach, build tokens, draw the piano roll, and listen, "
+             "all in the browser. Nothing to install.")
     with c2:
-        feat("🧠 Full Colab code", "Every step has runnable Python with a copy button, ready to "
-             "paste into Colab Pro.")
+        feat("💻", "Full Colab code", "Every step has runnable Python with a copy button. Open it "
+             "when you need it, paste it into Colab, and run it on a GPU.")
     with c3:
-        feat("🎛️ Two paradigms", "Part 1 is the Transformer (music as a sequence). Part 2 is "
-             "MuseGAN (music as an image).")
-    section("How this app works")
-    text_block("Every page has two layers: a **live demo** up top that runs real code here, and "
-                "the **full Colab code** below for students to copy and run on a GPU. The heavy "
-                "model training stays in Colab; everything lighter runs live in this app.")
-    callout("concept", "Navigation",
-            "Use the sidebar. <b>Part 1</b> is the Transformer, <b>Part 2</b> is MuseGAN. "
-            "You can also use the Back / Next buttons at the bottom of each page.")
-    section("Take the whole notebook")
-    st.download_button("Download the whole notebook (.py)", FULL_NOTEBOOK,
+        feat("🎛️", "Two ways to see music", "Part 1 reads music as a <b>sequence</b> of tokens. "
+             "Part 2 draws music as an <b>image</b>.")
+
+    section("Two models, two ways to see music")
+    p1, p2 = st.columns(2)
+    with p1:
+        st.markdown(
+            '<div class="path"><div class="path-k">Part 1</div>'
+            '<div class="path-t">Transformer: music as a sequence</div>'
+            '<div class="path-s">Like a language model that predicts the next word, it predicts '
+            'the next note and how long it lasts.</div><ol>'
+            '<li>Parse MIDI with music21</li><li>Split into two streams: notes and durations</li>'
+            '<li>Turn symbols into token IDs</li><li>Cut sliding training windows</li>'
+            '<li>Add position encoding</li><li>Build and train the model</li>'
+            '<li>Generate new music</li><li>Look inside: attention and keys</li>'
+            '<li>Polyphony: several notes at once</li></ol></div>', unsafe_allow_html=True)
+    with p2:
+        st.markdown(
+            '<div class="path gan"><div class="path-k">Part 2</div>'
+            '<div class="path-t">MuseGAN: music as an image</div>'
+            '<div class="path-s">A GAN draws a whole piano roll at once: pitch up the side, time '
+            'across, one layer per voice.</div><ol start="10">'
+            '<li>Build the piano-roll tensor</li><li>Temporal network: one plan per bar</li>'
+            '<li>Bar generator: paint one bar of one voice</li>'
+            '<li>Full generator: every bar, every voice</li><li>Critic: score how real it looks</li>'
+            '<li>WGAN-GP training</li></ol></div>', unsafe_allow_html=True)
+
+    section("How each page works")
+    s1, s2, s3 = st.columns(3)
+    for col, n, t, b in [
+        (s1, 1, "Read the idea", "A short explanation, the key points, and a small example."),
+        (s2, 2, "Try the live demo", "Real Bach data, processed right here. Change a setting and "
+                                     "watch what happens."),
+        (s3, 3, "Open the Colab code", "Click the code panel to unfold it, copy it, and run it "
+                                       "in Colab with a GPU.")]:
+        with col:
+            st.markdown(f'<div class="step"><div class="step-n">{n}</div><div class="step-t">{t}</div>'
+                        f'<div class="step-b">{b}</div></div>', unsafe_allow_html=True)
+
+    section("Before you start")
+    points(["Open a new **Colab** notebook and switch the runtime to a **GPU**.",
+            "Run the **Setup and data** page first. It installs music21 and loads the Bach scores.",
+            "Then follow the pages in order with the menu on the left, or the **Back / Next** "
+            "buttons at the bottom of each page."], "Checklist", "green")
+    st.download_button("⬇  Download the whole notebook (.py)", FULL_NOTEBOOK,
                        file_name="chapter11_music.py", mime="text/x-python")
     footer_nav(page_home)
 
 
 def page_setup():
-    hero("Setup and data", "Install the libraries and load the Bach data. Run these first in Colab.",
-         "COLAB SETUP", "slate")
+    hero("Setup and data",
+         "Install the libraries and load the Bach scores. Run these cells first in Colab.",
+         ["START HERE", "COLAB SETUP"], "slate")
+    points(["**music21** reads and writes music files and ships hundreds of Bach scores.",
+            "**TensorFlow / Keras** builds and trains both models.",
+            "Use a **GPU runtime** in Colab: Runtime → Change runtime type → GPU."],
+           "What you need")
     section("1. Install and import")
-    colab_code(C["setup"])
-    section("2. Get the data")
-    st.markdown("music21 ships hundreds of Bach scores, so this needs no download.")
-    colab_code(C["download"])
-    section("3. Optional: graphical notation with MuseScore")
-    st.markdown("music21 draws sheet music by calling MuseScore. Run this in Colab to make "
-                "`score.show()` render real notation instead of only `show('text')`.")
-    colab_code(C["musescore"])
+    colab_code(C["setup"], "Install and import")
+    section("2. Get the data", "music21 already includes the Bach scores, so there is nothing to "
+                               "download.")
+    colab_code(C["download"], "Load the Bach scores")
+    section("3. Optional: sheet music with MuseScore",
+            "music21 draws real notation by calling MuseScore. Skip this if `show('text')` is enough.")
+    colab_code(C["musescore"], "Install MuseScore in Colab")
     callout("concept", "If apt shows 404 errors",
-            "That is Colab's stale package cache. The <code>apt-get update</code> line above fixes "
-            "it. And <code>score.show('text')</code> always works with no install at all.")
+            "That is Colab's stale package cache. The <code>apt-get update</code> line in the cell "
+            "fixes it. And <code>score.show('text')</code> always works with no install at all.")
     footer_nav(page_setup)
 
 
 def page_parse():
-    hero("1. Parse MIDI with music21",
-         "Turn a MIDI file into structured events, the bridge from music to data.",
-         "LIVE DEMO", "green")
-    text_block(
-        "A MIDI file is just instructions: which note, when it starts, how long it lasts. "
-        "`music21` reads those instructions and hands us back **structured events** we can loop "
-        "over in Python. The score stops being a picture and becomes a list of timed, typed "
-        "objects.")
+    hero("Parse MIDI with music21",
+         "Turn a music file into a list of timed events: the bridge from music to data.",
+         [P1, "STEP 1 OF 9", "LIVE DEMO"], "green")
+    lead("A MIDI file is a list of instructions: which note, when it starts, how long it lasts. "
+         "`music21` reads those instructions and gives us back **objects we can loop over in "
+         "Python**.")
+    points(["Each object has a **type** (Note, Rest, Chord, KeySignature, ...) and an **offset**: "
+            "when it happens, in beats.",
+            "A note knows its **pitch** (like `G3`) and its **duration** (like `1.0` beat).",
+            "From here on, the music is just data."])
     try:
         score = load_score()
         st.success(f"Loaded a real Bach chorale with {len(score.parts)} voices "
                    f"({', '.join(p.partName or '?' for p in score.parts)}).")
-        section("The structured events")
+        section("Live: the first events in the score")
         rows = []
         for el in list(score.recurse())[:24]:
             rows.append({"offset (beat)": round(float(el.offset), 2),
@@ -797,36 +938,38 @@ def page_parse():
         st.dataframe(pd.DataFrame(rows), use_container_width=True, height=300)
         with st.expander("How to read this table"):
             st.markdown(
-                "- **offset (beat):** when the object happens, in quarter-note beats from the "
-                "start. `0.0` is the very beginning.\n"
+                "- **offset (beat):** when the object happens, in beats from the start. `0.0` is "
+                "the very beginning.\n"
                 "- **type:** what kind of object it is. The first rows are setup (`Instrument`, "
-                "`Clef`, `KeySignature`, `TimeSignature`); after that the real `Note`, `Chord`, "
+                "`Clef`, `KeySignature`, `TimeSignature`). After that, the real `Note`, `Chord` "
                 "and `Rest` objects begin.\n"
-                "- **value:** the content, for example a pitch like `C5`, a key like `f# minor`, "
-                "or a time signature like `4/4`.")
+                "- **value:** the content, such as a pitch `C5`, a key `f# minor`, or a time "
+                "signature `4/4`.")
         callout("concept", "Which Bach?",
                 "The book trains on the J.S. Bach <b>cello suites</b>. This app uses the Bach "
                 "<b>chorales</b> that ship with music21, so everything runs with no download. "
                 "The pipeline is exactly the same; only the data changes.")
-        section("Hear the top line")
+        section("Live: hear the top line", "At each moment we keep only the highest note: one "
+                                           "melody, one note at a time.")
         st.audio(synth_wav(top_line(score, 48)))
-        st.caption("The melody only: at each moment we keep the highest note, and synthesize the "
-                   "first 48 notes with a simple tone.")
         with st.expander("What exactly is playing?"):
             st.markdown(
-                "The chorale has four voices at once. Here we keep just the **top note at each "
-                "step**, giving one melodic line, one note at a time (**monophonic**). That is on "
-                "purpose: the Transformer in Part 1 learns a single line first, so this is the "
-                "exact signal it will be trained on. The plain tone can sound beepy; we are "
-                "showing the *notes*, not a real instrument.")
-        section("Graphical notation (optional)")
-        st.caption("music21 can draw real sheet music with `score.show()`, but it needs MuseScore "
-                   "installed here. In Colab, use the MuseScore cell on the Setup page.")
-        mpath = st.text_input("MuseScore executable path", value=guess_mscore(),
+                "- The chorale has **four voices** singing at once.\n"
+                "- We keep just the **top note at each step**, which gives one melodic line "
+                "(**monophonic**).\n"
+                "- That is on purpose: the Part 1 Transformer learns a single line first, so this "
+                "is the signal it trains on.\n"
+                "- The plain tone can sound beepy. We are showing the *notes*, not a real "
+                "instrument.")
+        section("Optional: sheet music",
+                "Drawing notation needs MuseScore installed on the machine running this app. "
+                "Everything else works without it.")
+        mpath = st.text_input("MuseScore executable path (optional)", value=guess_mscore(),
                               placeholder=r"C:\Program Files\MuseScore 4\bin\MuseScore4.exe")
         if st.button("Render the first bars"):
             if not mpath:
-                st.warning("No MuseScore found. Install it from musescore.org, then enter the path.")
+                st.info("MuseScore was not found, so sheet music is off. Install it from "
+                        "musescore.org and enter its path, or use the MuseScore cell in Colab.")
             else:
                 with st.spinner("Rendering with MuseScore..."):
                     try:
@@ -842,21 +985,24 @@ def page_parse():
     except Exception as e:
         st.warning(f"Live parse unavailable here ({e}). The Colab code below still works.")
     section("Colab code")
-    colab_code(C["parse"])
+    colab_code(C["parse"], "Parse every score into notes and durations")
     footer_nav(page_parse)
 
 
 def page_streams():
-    hero("2. Two streams: notes and durations",
-         "Split the music into two aligned lists: what plays, and how long.", "LIVE DEMO", "green")
-    text_block(
-        "Every musical event carries **two facts**: which note, and how long it lasts. So we turn "
-        "the parsed music into **two lists that line up** position by position. The key and time "
-        "signature go at the front with duration 0.0, because they take no musical time.")
+    hero("Two streams: notes and durations",
+         "Split the music into two lists that line up: what plays, and for how long.",
+         [P1, "STEP 2 OF 9", "LIVE DEMO"], "green")
+    lead("Every musical event carries **two facts**: which note, and how long it lasts. So we keep "
+         "**two lists that line up** position by position.")
+    points(["**Notes:** the pitch at each step, or `REST` for silence.",
+            "**Durations:** how many beats each event lasts.",
+            "The key and time signature go at the front with duration `0.0`, because they are "
+            "labels, not sounds."])
     callout("example", "Example",
-            "G3 held for 1 beat, then silence for 1 beat, then A3 for 2 beats becomes:<br><br>"
-            "<b>notes</b> = [G3, REST, A3] &nbsp; and &nbsp; <b>durations</b> = [1.0, 1.0, 2.0]"
-            "<br><br>Read the two lists together, column by column, and you get the music back.")
+            "G3 for 1 beat, then silence for 1 beat, then A3 for 2 beats:<br><br>"
+            "<b>notes</b> = [G3, REST, A3] &nbsp;&nbsp; <b>durations</b> = [1.0, 1.0, 2.0]"
+            "<br><br>Read the two lists column by column and you get the music back.")
     try:
         score = load_score()
         notes, durs = to_streams(score, limit=40)
@@ -866,23 +1012,23 @@ def page_streams():
     except Exception as e:
         st.warning(f"Live view unavailable here ({e}).")
     section("Colab code")
-    colab_code(C["streams"])
+    colab_code(C["streams"], "Build the two streams")
     footer_nav(page_streams)
 
 
 def page_tokenize():
-    hero("3. Tokenization: two vocabularies",
-         "Give every symbol an integer id, one dictionary for notes, one for durations.",
-         "LIVE DEMO", "green")
-    text_block(
-        "A neural network only understands **numbers**, not text like `G3`. So we build a "
-        "dictionary that gives every distinct symbol its own integer id. We do this **twice**: "
-        "one dictionary for the notes, one for the durations, and keep the two lists zipped "
-        "together.")
+    hero("Tokenization: two vocabularies",
+         "Give every symbol an integer ID: one dictionary for notes, one for durations.",
+         [P1, "STEP 3 OF 9", "LIVE DEMO"], "green")
+    lead("A neural network only understands **numbers**, not text like `G3`. So we build a "
+         "dictionary that gives every distinct symbol its own integer ID.")
+    points(["We build it **twice**: one vocabulary for notes, one for durations.",
+            "IDs `0` and `1` are reserved for padding and unknown tokens (`[UNK]`).",
+            "The rest are ordered by **frequency**: the most common token gets ID `2`.",
+            "The numbers are just labels. The model learns what they mean from the data."])
     callout("example", "Example",
-            "Just like a text tokenizer turns 'the cat sat' into [5, 8, 2], our music tokenizer "
-            "turns [G3, REST, A3] into something like [17, 6, 25]. The numbers are just labels; the "
-            "model learns what they mean from the data.")
+            "A text tokenizer turns 'the cat sat' into [5, 8, 2]. Our music tokenizer turns "
+            "[G3, REST, A3] into something like [17, 6, 25].")
     try:
         score = load_score()
         notes, durs = to_streams(score)
@@ -891,39 +1037,38 @@ def page_tokenize():
         nvocab = ["", "[UNK]"] + [t for t, _ in Counter(notes).most_common()]
         dvocab = ["", "[UNK]"] + [t for t, _ in Counter(durs).most_common()]
         nid = {t: i for i, t in enumerate(nvocab)}
-        section("Live: note ids from a real chorale")
+        section("Live: note IDs from a real chorale")
         cc1, cc2 = st.columns(2)
         cc1.metric("note vocabulary", len(nvocab))
         cc2.metric("duration vocabulary", len(dvocab))
         demo = notes[:12]
         st.dataframe(pd.DataFrame({"note token": demo, "id": [nid[t] for t in demo]}),
                      use_container_width=True, height=300)
-        st.caption("Ids 0 and 1 are reserved for padding and [UNK]. The rest follow frequency: "
-                   "the most common token gets id 2. Ids from one chorale differ from the full "
-                   "corpus, so the numbers in Colab will not match this table exactly.")
+        st.caption("This table uses one chorale. Colab builds the vocabulary from the whole "
+                   "corpus, so the IDs there will differ.")
     except Exception as e:
         st.warning(f"Live view unavailable here ({e}).")
     section("Colab code")
-    colab_code(C["tokenize"])
+    colab_code(C["tokenize"], "Build the two vocabularies")
     footer_nav(page_tokenize)
 
 
 def page_window():
-    hero("4. Sliding-window training set",
-         "Make many little 'predict the next event' examples by sliding a window.",
-         "LIVE DEMO", "green")
-    text_block(
-        "We train the model to **predict the next event**. To make training examples, we slide a "
-        "fixed-size window across the sequence one token at a time. The window is the **input**, "
-        "and the **target** is the same window shifted one step to the right, so the model "
-        "practises a next-event guess at every position at once.")
+    hero("Sliding windows",
+         "Cut each piece into many small 'predict the next event' examples.",
+         [P1, "STEP 4 OF 9", "LIVE DEMO"], "green")
+    lead("Pieces have different lengths, but the model needs inputs of **one fixed size**. So we "
+         "slide a window across each piece and cut out many training examples.")
+    points(["**Window size:** how many events the model sees at once. The book uses 50.",
+            "**Stride:** how far the window moves each time. Here, 1 event.",
+            "**Overlap:** events shared by neighboring windows = window size − stride.",
+            "**Target:** the same window shifted one step to the right, so the model practices a "
+            "next-event guess at every position."], "Three choices you make in any sequence project")
     callout("example", "Example",
-            "Think of flashcards. From G3 D3 B3 A3 B3 with a window of 3:<br><br>"
-            "input <b>[G3 D3 B3]</b> &rarr; answer <b>A3</b>, &nbsp; then slide: &nbsp; "
-            "input <b>[D3 B3 A3]</b> &rarr; answer <b>B3</b>.<br><br>"
-            "In training, the target for [G3 D3 B3] is [D3 B3 A3]: one guess per position, and "
-            "the last one is the next event. The note list and duration list slide together, so "
-            "they stay aligned.")
+            "From G3 D3 B3 A3 B3 with a window of 3:<br><br>"
+            "input <b>[G3 D3 B3]</b> &rarr; target <b>[D3 B3 A3]</b><br>"
+            "slide by one: input <b>[D3 B3 A3]</b> &rarr; target <b>[B3 A3 B3]</b><br><br>"
+            "The note list and the duration list slide together, so they stay aligned.")
     try:
         score = load_score()
         notes, durs = to_streams(score)
@@ -935,22 +1080,24 @@ def page_window():
     except Exception as e:
         st.warning(f"Live view unavailable here ({e}).")
     section("Colab code")
-    colab_code(C["window"])
+    colab_code(C["window"], "Cut windows and build the dataset")
     footer_nav(page_window)
 
 
 def page_posenc():
-    hero("5. Position encoding",
-         "Stamp each slot with a 'where am I' signal so order matters.", "LIVE DEMO", "green")
-    text_block(
-        "A Transformer looks at all the tokens in the window **at once**, so by itself it has no "
-        "sense of order. Position encoding stamps each slot with a unique 'where am I in the "
-        "sequence' signal, so the model can tell the first token from the last.")
-    callout("example", "Why it matters",
-            "The notes G, A, B going up and B, A, G going down use the exact same three symbols. "
-            "Only the ORDER is different. Position encoding is what lets the model hear that "
-            "difference.")
-    section("Live: the sinusoidal position signal")
+    hero("Position encoding",
+         "Stamp every slot with a 'where am I' signal, so order matters.",
+         [P1, "STEP 5 OF 9", "LIVE DEMO"], "green")
+    lead("A Transformer looks at every token in the window **at once**, so on its own it has no "
+         "sense of order. Position encoding adds a signal that says **where** each token sits.")
+    points(["G3 B3 D3 and D3 B3 G3 use the same notes. Only the **order** differs.",
+            "**Sinusoidal:** sine and cosine waves of different speeds give each slot its own "
+            "pattern. Nothing extra to train.",
+            "It is **added** to each stream's embedding, so it has the same size: 128 numbers.",
+            "The embedding says **what** the note is. The position says **where** it is."])
+    section("Live: the sinusoidal position signal",
+            "Each column is one position, each row one number of the signal. Pick a row to see "
+            "its wave.")
     dim = st.slider("highlight embedding dimension", 0, 31, 4)
     pos, D = 64, 32
     pe = np.zeros((pos, D))
@@ -970,247 +1117,282 @@ def page_posenc():
         ax2.plot(pe[:, dim], color=INDIGO, lw=2)
         ax2.set_title(f"dimension {dim}"); ax2.set_xlabel("position")
         st.pyplot(fig2)
+    st.caption("Low dimensions wiggle fast, high dimensions change slowly. Together they give "
+               "every position a unique fingerprint.")
     section("Colab code")
-    colab_code(C["posenc"])
+    colab_code(C["posenc"], "Token + position embedding layer")
     footer_nav(page_posenc)
 
 
 def page_model():
-    hero("6. The model: what goes in, what comes out",
-         "Two token streams in, two 'what comes next' distributions out. Training lives here.",
-         "MODEL + TRAINING", "indigo")
-    text_block("This is the heart of Part 1. The single most important thing to be clear about is "
-                "the **input** and the **output** of the Transformer.")
+    hero("The model: what goes in, what comes out",
+         "Two token streams in, two 'what comes next' predictions out.",
+         [P1, "STEP 6 OF 9", "MODEL + TRAINING"], "indigo")
+    lead("This is the heart of Part 1. The most important thing to be clear about is the "
+         "**input** and the **output**.")
+    io([("Input", "two windows of IDs: notes and durations, `[B, 50]` each"),
+        ("Decoder", "embed, add position, join to `[B, 50, 256]`, causal attention"),
+        ("Output", "next note `[B, 50, 59]` and next duration `[B, 50, 24]`")])
     ci, co = st.columns(2)
     with ci:
         section("Input")
-        st.markdown("Two aligned windows of token **ids**: the notes, and the durations.")
+        st.markdown("Two aligned windows of token **IDs**:")
         st.code("notes: [START, G3, D3,  B3,  A3]   ->  ids [2, 17, 12, 9, 25]\n"
                 "durs:  [0.0,   1.0, 0.5, 1.0, 2.0] ->  ids [7, 4, 2, 4, 5]", language=None)
-        st.caption("Example ids, matching the lecture slides. Real ids come from the vocabulary "
+        st.caption("Example IDs, matching the lecture slides. Real IDs come from the vocabulary "
                    "built in Colab.")
     with co:
         section("Output")
-        st.markdown("Per position, **two probability distributions**: next note, next duration.")
+        st.markdown("At every position, **two probability lists**: next note and next duration.")
         fig, ax = plt.subplots(figsize=(4.2, 1.9))
         ax.bar(["G3", "A3", "B3", "C4", "D4"], [0.08, 0.55, 0.12, 0.18, 0.07], color=INDIGO)
         ax.set_title("P(next note)", fontsize=10); ax.set_ylim(0, 0.7)
         ax.tick_params(labelsize=8); fig.tight_layout()
         st.pyplot(fig)
         st.caption("Here the model is fairly sure the next note is A3.")
-    callout("key", "In to Out",
-            "<b>Two token streams go in, two 'what comes next' distributions come out.</b> Between "
-            "them sits one shared causal Transformer block, which can only look at the past, never "
-            "the future.")
+    points(["Each stream gets its own **embedding** (128 numbers) plus **position**.",
+            "The two are **joined**: 128 + 128 = 256 numbers per event.",
+            "A **causal** Transformer block mixes information, looking only at the past.",
+            "The same 256 numbers go to **two output heads**: one picks the next note, one the "
+            "next duration. The loss is note loss + duration loss."], "Inside the model")
     section("The architecture")
     st.graphviz_chart("""
-    digraph { rankdir=TB; node [shape=box, style=rounded, fontname=Helvetica];
-      n[label="Note input"]; d[label="Duration input"];
-      ne[label="Token + position\\nembedding"]; de[label="Token + position\\nembedding"];
-      cat[label="Concatenate [b,l,256]"]; tb[label="Causal Transformer block"];
-      no[label="Dense -> next NOTE [b,l,59]"]; do[label="Dense -> next DURATION [b,l,24]"];
+    digraph { rankdir=TB; node [shape=box, style="rounded,filled", fillcolor="#eef2ff",
+              color="#3E5BD6", fontname=Helvetica];
+      n[label="Note IDs [B,50]"]; d[label="Duration IDs [B,50]"];
+      ne[label="Note embedding + position\\n[B,50,128]"]; de[label="Duration embedding + position\\n[B,50,128]"];
+      cat[label="Concatenate [B,50,256]", fillcolor="#f3ecfd", color="#7B3FB0"];
+      tb[label="Causal Transformer block", fillcolor="#fff6dd", color="#E8952F"];
+      no[label="Note head -> [B,50,59]"]; do[label="Duration head -> [B,50,24]", fillcolor="#fff1e2", color="#E8952F"];
       n->ne; d->de; ne->cat; de->cat; cat->tb; tb->no; tb->do; }
     """)
     callout("concept", "Where training happens",
-            "The last line of the code below, <code>model.fit(train_ds, epochs=20)</code>, is the "
+            "The last line of the code, <code>model.fit(train_ds, epochs=20)</code>, is the "
             "training step. It adjusts the weights so the predicted next note and duration match "
             "the real next event in Bach. Run it on a GPU in Colab.")
     section("Colab code")
-    colab_code(C["model"])
+    colab_code(C["model"], "Build and train the Transformer")
     footer_nav(page_model)
 
 
 def page_generate():
-    hero("7. Generate: using the trained model",
-         "Inference: feed the music so far, sample the next event, append, and repeat.",
-         "LIVE DEMO - inference", "green")
-    text_block(
-        "Training is finished; now we **use** the model to compose. This is **inference**. We feed "
-        "the events so far, the model returns the two 'what comes next' distributions, we "
-        "**sample** one note and one duration, append them, and repeat.")
-    callout("key", "In to Out",
-            "<b>Input</b> = the music so far. &nbsp; <b>Output</b> = next-note + next-duration "
-            "distributions. We pick from those, add the choice to the sequence, and loop until the "
-            "piece is long enough.")
-    section("Live: temperature, the creativity dial")
-    st.markdown("Low temperature is safe and repetitive; high is adventurous. Drag it and watch "
-                "the distribution change.")
+    hero("Generate new music",
+         "Feed the music so far, sample the next event, append it, and repeat.",
+         [P1, "STEP 7 OF 9", "LIVE DEMO"], "green")
+    lead("Training is done. Now we **use** the model to compose. This is called **inference**.")
+    points(["Feed the events so far, starting from `START`.",
+            "The model returns the next-note and next-duration probabilities.",
+            "**Sample** one note and one duration, append them, and repeat.",
+            "Stop when the piece is long enough."], "The generation loop")
+    section("Live: temperature, the creativity dial",
+            "Low temperature plays it safe and repeats itself. High temperature takes risks. Drag "
+            "the slider and watch the probabilities change.")
     labels = ["G", "A", "Bb", "C", "D", "Eb", "F", "F#"]
     logits = np.array([3.1, 1.2, 0.4, 2.6, 1.9, 0.7, 1.4, -1.5])
     temp = st.slider("temperature", 0.1, 2.0, 1.0, 0.05)
     probs = np.exp(logits / temp); probs /= probs.sum()
     fig, ax = plt.subplots(figsize=(8, 3))
     ax.bar(labels, probs, color=INDIGO)
-    ax.set_ylabel("probability"); ax.set_ylim(0, 1); ax.set_title("next-note distribution")
+    ax.set_ylabel("probability"); ax.set_ylim(0, 1); ax.set_title("next-note probabilities")
     st.pyplot(fig)
     if st.button("Sample a note"):
         pick = int(np.random.choice(len(labels), p=probs))
         st.success(f"sampled: {labels[pick]}")
-    st.caption("Real generation from the trained model runs in Colab (code below), or from a small "
-               "pre-trained model we can ship with this app next.")
+    st.caption("Real generation from the trained model runs in Colab with the code below.")
     section("Colab code")
-    colab_code(C["generate"])
+    colab_code(C["generate"], "Generate with the trained model")
     footer_nav(page_generate)
 
 
 def page_analysis():
-    hero("8. Analysis: attention and keys",
-         "Trained only to predict the next event, the model learns real music theory by itself.",
-         "PAYOFF", "amber")
-    text_block("Here is the surprising part. Trained only to **predict the next event**, the model "
-                "quietly learns structure that nobody programmed. The Colab code below draws both "
-                "heatmaps from a generated sequence:")
+    hero("Look inside: attention and keys",
+         "Trained only to predict the next event, the model learns music theory by itself.",
+         [P1, "STEP 8 OF 9", "THE PAYOFF"], "amber")
+    lead("Nobody told the model about keys or scales. It only learned to **predict the next "
+         "event**. Yet two heatmaps show it learned real musical structure.")
     callout("key", "It discovered the key",
-            "In the note-distribution heatmap, whole pitch rows stay blank: the model avoids "
-            "out-of-key notes it was never told about.")
+            "In the next-note heatmap, whole pitch rows stay blank: the model avoids notes "
+            "outside the key, a rule it was never told.")
     callout("key", "It learned where to look",
             "In the attention map, early tokens lean on the key and time signature, and later "
             "tokens watch recent notes and repeated patterns.")
+    points(["Run **Generate** first, so there is a sequence to analyze.",
+            "The code draws both heatmaps side by side."], "How to use the code", "green")
     section("Colab code")
-    colab_code(C["analysis"])
+    colab_code(C["analysis"], "Draw the attention and next-note heatmaps")
     footer_nav(page_analysis)
 
 
 def page_polyphony():
-    hero("9. Polyphony: grid vs event",
+    hero("Polyphony: several notes at once",
          "Real music stacks notes. Two ways to flatten several voices into one sequence.",
-         "LIVE DEMO", "green")
-    text_block(
-        "Everything so far was **one line** of music (monophonic). But real music often has "
-        "**several notes at once** (polyphonic), like a chord or four singers. A Transformer reads "
-        "a single list of tokens, so we must **flatten** several simultaneous lines into one "
-        "sequence. There are two common ways.")
+         [P1, "STEP 9 OF 9", "LIVE DEMO"], "green")
+    lead("So far the music was **one line** (monophonic). Real music often has **several notes at "
+         "once** (polyphonic). A Transformer reads one list of tokens, so we must **flatten** "
+         "the voices into one sequence, like flattening an image into one long vector.")
+    points(["**Grid:** chop time into fixed steps and write every voice at each step.",
+            "**Event:** write instructions: note on, note off, move the clock forward.",
+            "Either way, one musical moment can take **several tokens**."], "Two ways to flatten")
     callout("example", "Tiny example",
             "Two voices, C and E, both held for one beat, then both stop.<br><br>"
-            "<b>Grid:</b> &nbsp; [C, E] , [C, E] &nbsp; (fixed time steps; each step lists every "
-            "voice)<br><b>Event:</b> &nbsp; NOTE_ON C, NOTE_ON E, TIME_SHIFT 1 beat, NOTE_OFF C, "
-            "NOTE_OFF E &nbsp; (a recipe of instructions)")
+            "<b>Grid:</b> &nbsp; [C, E] , [C, E]<br>"
+            "<b>Event:</b> &nbsp; NOTE_ON C, NOTE_ON E, TIME_SHIFT 1 beat, NOTE_OFF C, NOTE_OFF E")
     section("Live: the same music, two tokenizations")
     tab1, tab2 = st.tabs(["Grid tokenization", "Event tokenization"])
     with tab1:
-        st.markdown("**Grid.** Chop time into fixed steps. At each step, write down every voice in "
-                    "a fixed order (soprano, alto, tenor, bass), then move on. Read it like a "
-                    "spreadsheet, one column at a time.")
+        st.markdown("Chop time into fixed steps. At each step, write every voice in a fixed order "
+                    "(soprano, alto, tenor, bass). Read it like a spreadsheet, one row at a time.")
         st.dataframe(pd.DataFrame(
             {"S": [74, 74, 75], "A": [70, 70, 70], "T": [65, 65, 60], "B": [58, 55, 55]}),
             use_container_width=True)
-        st.caption("Simple and regular, but rigid on fine timing.")
+        st.caption("Simple and regular, but rigid about fine timing.")
     with tab2:
-        st.markdown("**Event.** Write the music as instructions: turn a note on, turn it off, wait "
-                    "a bit. Like the messages a keyboard sends, or holes punched in a player-piano "
-                    "roll.")
+        st.markdown("Write the music as instructions: turn a note on, turn it off, wait a bit. "
+                    "Like the messages a keyboard sends.")
         st.code("NOTE_ON<74>  NOTE_ON<70>  NOTE_ON<65>  NOTE_ON<58>\n"
                 "TIME_SHIFT<1.0>\nNOTE_OFF<58>  NOTE_ON<55>\nTIME_SHIFT<0.5>", language=None)
-        st.caption("Flexible (exact timing, triplets, dynamics), but the sequences get longer.")
+        st.caption("Flexible (exact timing, triplets, loudness), but sequences get longer.")
+    callout("concept", "What changes in the model",
+            "Every event type shares <b>one vocabulary</b>, so the model needs only <b>one output "
+            "head</b>: Linear 256 &rarr; V, where V is the number of event types.")
     section("Colab code")
-    colab_code(C["polyphony"])
+    colab_code(C["polyphony"], "Event tokenization")
     footer_nav(page_polyphony)
 
 
 def page_musegan_data():
-    hero("10. Piano-roll tensor (MuseGAN)",
-         "A new view: draw the score as an image, then use convolution tools.", "LIVE DEMO", "green")
-    text_block(
-        "MuseGAN takes a totally different view. Instead of a list of tokens, it draws the music on "
-        "a **grid**: pitch up the side, time across the bottom, a filled cell wherever a note "
-        "sounds. That grid is basically an **image**, so we can use the same convolution tools we "
-        "use for pictures. The Colab code below builds the real training tensor from the "
-        "chorales that ship with music21.")
-    callout("example", "Picture it",
-            "A spreadsheet: rows are pitches, columns are time, a cell is 1 if that pitch is "
-            "playing then. Four voices = four stacked sheets (channels), like the R, G, B channels "
-            "of a colour image.")
+    hero("The piano-roll tensor",
+         "A new view: draw the score as an image, then use convolution tools.",
+         [P2, "STEP 10", "LIVE DEMO"], "amber")
+    lead("MuseGAN does not read tokens. It draws the music on a **grid**: pitch up the side, time "
+         "across, and a 1 wherever a note sounds. That grid is an **image**, so convolutions work "
+         "on it.")
+    points(["**Each cell is 0 or 1**, not a brightness from 0 to 255 like a photo.",
+            "A note held for one beat = **four 1s in a row** (4 steps per beat).",
+            "**Each voice is its own layer**, like the R, G, B layers of a photo.",
+            "Before training, 0 becomes −1 and 1 becomes +1, to match the generator's tanh output."],
+           "How to read the grid")
     section("Live: a real chorale as a piano roll")
     try:
         st.pyplot(piano_roll_fig(load_score()))
     except Exception as e:
         st.warning(f"Live view unavailable here ({e}).")
-    callout("concept", "Data shape",
-            "bars = 2 &nbsp;·&nbsp; steps = 16 &nbsp;·&nbsp; pitches = 84 &nbsp;·&nbsp; tracks = 4 "
-            "(S A T B) &nbsp; &rarr; &nbsp; <code>[batch, 2, 16, 84, 4]</code>")
+    callout("concept", "One training example",
+            "2 bars &times; 16 steps per bar &times; 84 pitches &times; 4 voices "
+            "&nbsp;&rarr;&nbsp; <code>[batch, 2, 16, 84, 4]</code>")
     section("Colab code")
-    colab_code(C["musegan_data"])
+    colab_code(C["musegan_data"], "Build the piano-roll training tensor")
     footer_nav(page_musegan_data)
 
 
 def page_temporal():
-    hero("11. The temporal network",
-         "Turn one random vector into one plan per bar, so bars connect.", "MODEL", "indigo")
-    text_block(
-        "A GAN generator normally turns one random vector into one output. But a piece has several "
-        "**bars** that should relate to each other. The temporal network takes one random vector "
-        "and expands it into **one vector per bar**, so the bars connect instead of being random "
-        "and independent.")
-    callout("example", "Analogy",
-            "Like planning a short story: one seed idea is expanded into a plan for chapter 1 and "
-            "chapter 2 that both follow from the same idea.")
+    hero("The temporal network",
+         "Turn one random vector into one plan per bar, so the bars belong together.",
+         [P2, "STEP 11", "MODEL"], "indigo")
+    lead("A plain GAN turns one random vector into one output. A piece has **several bars** that "
+         "should relate. The temporal network turns **one seed** into **one vector per bar**.")
+    points(["It is a **small part of the generator**, not a separate model, and draws no music.",
+            "Built from **transposed convolutions** that stretch the seed along time.",
+            "Used for **chords** (one network) and **melody** (one per voice).",
+            "Style and groove skip it, because they stay the same in every bar.",
+            "It has **no loss of its own**: it learns with the rest of the generator."])
+    callout("example", "Example (4 numbers instead of the book's 32)",
+            "chords seed [0.8, −1.2, 0.3, 0.5] &rarr; bar 1 [0.9, −0.7, 0.2, 1.1] and "
+            "bar 2 [0.4, −1.0, 0.6, −0.3]. Different, but related, because both come from one "
+            "seed. Heard as music: G major, then C major.")
     section("Colab code")
-    colab_code(C["temporal"])
+    colab_code(C["temporal"], "Temporal network")
     footer_nav(page_temporal)
 
 
 def page_bargen():
-    hero("12. The bar generator", "Paint a single bar for a single voice, then repeat everywhere.",
-         "MODEL", "indigo")
-    text_block(
-        "The bar generator does one small job: **paint a single bar for a single voice**. It takes "
-        "the latent pieces for that bar and voice and grows them, first along time, then along "
-        "pitch, into a small piano-roll patch.")
+    hero("The bar generator",
+         "Paint one bar for one voice, then repeat it everywhere.",
+         [P2, "STEP 12", "MODEL"], "indigo")
+    lead("The bar generator does one small job: **paint a single bar for a single voice**.")
+    points(["Its input joins **four pieces**: chords for this bar, style, this voice's melody for "
+            "this bar, and this voice's groove.",
+            "4 × 32 = **128 numbers** in the book.",
+            "It grows them into a grid, first along **time** (2 → 16 steps), then along **pitch** "
+            "(→ 84 rows).",
+            "There is **one bar generator per voice**, each with its own weights."],
+           "What goes in and out")
     callout("example", "Analogy",
-            "Like a printer filling in one tile of the final picture. Run it for every bar and "
-            "every voice to build the whole score.")
+            "Like a printer filling in one tile of a mosaic. Run it for every bar and every voice "
+            "to build the whole score.")
     section("Colab code")
-    colab_code(C["bargen"])
+    colab_code(C["bargen"], "Bar generator")
     footer_nav(page_bargen)
 
 
 def page_generator():
-    hero("13. The full generator", "Repeat the small painter across every bar and every voice.",
-         "MODEL", "indigo")
-    text_block(
-        "Now we repeat that small painter **everywhere**. For each bar and each voice, gather the "
-        "right latent pieces (chords, style, melody, groove), run the bar generator, and stack the "
-        "results into the full multi-voice score.")
+    hero("The full generator",
+         "Run the bar generator for every bar and every voice, then stack the results.",
+         [P2, "STEP 13", "MODEL"], "indigo")
+    lead("Now we put the pieces together. The full generator is the **temporal networks plus the "
+         "four bar generators**.")
+    points(["**Style:** one vector, copied to every voice and every bar.",
+            "**Chords:** one per bar from the temporal network, shared by all voices.",
+            "**Groove:** one per voice, used in every bar of that voice.",
+            "**Melody:** one per voice per bar, from that voice's temporal network.",
+            "Output: one full piano roll, `[2, 16, 84, 4]`."], "The four noise inputs")
+    callout("concept", "Why keep four separate inputs?",
+            "They are all random noise. What makes them different is <b>where each one is "
+            "sent</b>. That wiring forces each input to take a job, and lets you change one "
+            "thing at a time, like a new harmony with the same voices.")
     section("Colab code")
-    colab_code(C["generator"])
+    colab_code(C["generator"], "Full generator")
     footer_nav(page_generator)
 
 
 def page_critic():
-    hero("14. The critic", "The judge: one realness score for a whole score.", "MODEL", "indigo")
-    text_block(
-        "The critic is the **judge**. It looks at a whole score (real Bach, or a fake from the "
-        "generator) and outputs a single number: how real does this look? The generator tries to "
-        "earn high scores; the critic tries to tell real from fake.")
+    hero("The critic",
+         "The judge: one realism score for a whole piano roll.",
+         [P2, "STEP 14", "MODEL"], "indigo")
+    lead("The critic looks at a whole piano roll, real Bach or a fake, and outputs **one number**: "
+         "how real does this look?")
+    points(["It is a **CNN** that reads the full `[bars, steps, pitches, voices]` block.",
+            "It outputs a **score**, not a yes/no probability (WGAN-GP).",
+            "It uses **no batch normalization**, which WGAN-GP requires.",
+            "The generator learns only from this score."])
     callout("example", "Analogy",
-            "Like an art expert scoring how convincingly a forgery imitates the master.")
-    st.markdown("It uses **Conv3D** over the `[bars, steps, pitches, tracks]` block, with no batch "
-                "normalization (a WGAN-GP requirement).")
+            "An art expert scoring how convincingly a forgery imitates the master.")
     section("Colab code")
-    colab_code(C["critic"])
+    colab_code(C["critic"], "Critic")
     footer_nav(page_critic)
 
 
 def page_wgan():
-    hero("15. WGAN-GP training", "The adversarial game, exactly like your GAN lecture.",
-         "TRAINING", "indigo")
-    text_block(
-        "This is the training loop for the whole GAN, and it is the **same adversarial game** as "
-        "your GAN lecture. The critic learns to score real above fake, the generator learns to "
-        "fool the critic, and a **gradient penalty** keeps the critic well-behaved. The critic "
-        "trains 5 steps for every generator step. At the end, the code samples a new 2-bar "
-        "chorale and reads the notes back out of the piano roll.")
+    hero("WGAN-GP training",
+         "The adversarial game from your GAN lecture, now with music.",
+         [P2, "STEP 15", "TRAINING"], "indigo")
+    lead("The critic and the generator **take turns**. The critic learns to tell real from fake; "
+         "the generator learns to fool it.")
+    points(["**Critic:** scores real music high and fakes low. It updates its weights **5 times**; "
+            "the generator is frozen.",
+            "**Generator:** changes so its fakes score higher. **1 update**, with its gradient "
+            "flowing back through the frozen critic.",
+            "**Gradient penalty:** keeps the critic smooth, so its advice stays useful.",
+            "**Repeat.** The fakes slowly start to look like Bach."], "One training round")
+    callout("key", "At the end",
+            "The code samples a new 2-bar chorale and reads the notes back out of the piano roll.")
     section("Colab code")
-    colab_code(C["wgan"])
+    colab_code(C["wgan"], "WGAN-GP training loop")
     footer_nav(page_wgan)
 
 
 def page_notebook():
-    hero("Take it to Colab", "Grab the whole notebook and paste it into Colab Pro cells.",
-         "FULL CODE", "slate")
-    st.download_button("Download the whole notebook (.py)", FULL_NOTEBOOK,
+    hero("The whole notebook",
+         "Every code cell from every page, in order, in one file.",
+         ["TAKE IT TO COLAB"], "slate")
+    points(["Download the file, or open the panel below and copy it.",
+            "Paste it into Colab, cell by cell, with a **GPU** runtime.",
+            "Run Part 1 first, then Part 2."], "How to use it", "green")
+    st.download_button("⬇  Download the whole notebook (.py)", FULL_NOTEBOOK,
                        file_name="chapter11_music.py", mime="text/x-python")
-    st.code(FULL_NOTEBOOK, language="python")
+    n = FULL_NOTEBOOK.count("\n") + 1
+    with st.expander(f"💻  Full notebook  ·  {n} lines  ·  click to open", expanded=False):
+        st.code(FULL_NOTEBOOK, language="python")
     footer_nav(page_notebook)
 
 
@@ -1220,6 +1402,11 @@ try:
 except Exception:
     pass
 
+with st.sidebar:
+    st.markdown('<div class="sb-brand"><div class="sb-brand-t">🎵 Music Gen Lab</div>'
+                '<div class="sb-brand-s">Transformer + MuseGAN · Chapter 11</div></div>',
+                unsafe_allow_html=True)
+
 p_home = st.Page(page_home, title="Home", icon=":material/home:", default=True)
 p_setup = st.Page(page_setup, title="Setup and data", icon=":material/download:")
 p_parse = st.Page(page_parse, title="1. Parse MIDI", icon=":material/music_note:")
@@ -1228,8 +1415,8 @@ p_tokenize = st.Page(page_tokenize, title="3. Tokenization", icon=":material/tag
 p_window = st.Page(page_window, title="4. Sliding windows", icon=":material/view_column:")
 p_posenc = st.Page(page_posenc, title="5. Position encoding", icon=":material/waves:")
 p_model = st.Page(page_model, title="6. Model + training", icon=":material/account_tree:")
-p_generate = st.Page(page_generate, title="7. Generate (inference)", icon=":material/casino:")
-p_analysis = st.Page(page_analysis, title="8. Analysis", icon=":material/insights:")
+p_generate = st.Page(page_generate, title="7. Generate", icon=":material/casino:")
+p_analysis = st.Page(page_analysis, title="8. Look inside", icon=":material/insights:")
 p_polyphony = st.Page(page_polyphony, title="9. Polyphony", icon=":material/queue_music:")
 p_mdata = st.Page(page_musegan_data, title="10. Piano-roll tensor", icon=":material/grid_on:")
 p_temporal = st.Page(page_temporal, title="11. Temporal network", icon=":material/schedule:")
@@ -1249,9 +1436,9 @@ ORDER_FUNCS = [page_home, page_setup, page_parse, page_streams, page_tokenize, p
 
 nav = st.navigation({
     "Start here": [p_home, p_setup],
-    "Part 1  ·  Transformer": [p_parse, p_streams, p_tokenize, p_window, p_posenc, p_model,
-                               p_generate, p_analysis, p_polyphony],
-    "Part 2  ·  MuseGAN": [p_mdata, p_temporal, p_bargen, p_gen, p_critic, p_wgan],
+    "Part 1 · Transformer": [p_parse, p_streams, p_tokenize, p_window, p_posenc, p_model,
+                             p_generate, p_analysis, p_polyphony],
+    "Part 2 · MuseGAN": [p_mdata, p_temporal, p_bargen, p_gen, p_critic, p_wgan],
     "Take it to Colab": [p_notebook],
 })
 nav.run()
