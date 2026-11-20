@@ -34,58 +34,51 @@ html, body, [class*="css"], .stApp { font-family:'Inter', system-ui, -apple-syst
 .block-container { padding-top:1.2rem; padding-bottom:3rem; max-width:1140px; }
 p, li { line-height:1.65; }
 
-/* ---------- hero header ---------- */
-.hero { border-radius:18px; padding:26px 30px 24px; margin:2px 0 22px; color:#fff;
-        box-shadow:0 12px 30px rgba(20,30,60,.16); position:relative; overflow:hidden; }
-.hero:after { content:""; position:absolute; right:-60px; top:-60px; width:220px; height:220px;
-              border-radius:50%; background:rgba(255,255,255,.09); }
-.hero-indigo{ background:linear-gradient(120deg,#3E5BD6,#6d84ec); }
-.hero-green { background:linear-gradient(120deg,#1f9d57,#3cbf78); }
-.hero-amber { background:linear-gradient(120deg,#df7d1c,#f2ad4a); }
-.hero-slate { background:linear-gradient(120deg,#1B2333,#3d4a72); }
-.hero-tags { display:flex; flex-wrap:wrap; gap:8px; }
-.hero-tag { display:inline-block; background:rgba(255,255,255,.22); border-radius:999px;
-            padding:4px 13px; font-size:.72rem; font-weight:700; letter-spacing:.08em; }
-.hero-title { font-size:2.1rem; font-weight:800; margin:12px 0 6px; line-height:1.12;
-              letter-spacing:-.01em; }
-.hero-sub { font-size:1.08rem; opacity:.96; max-width:820px; line-height:1.5; }
+/* ---------- page header ---------- */
+.crumb { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:.82rem;
+         font-weight:600; color:var(--muted); letter-spacing:.01em; margin:4px 0 8px; }
+.crumb .part { color:var(--brand); font-weight:700; }
+.crumb .sep { color:#b3bacb; }
+.crumb .badge { margin-left:auto; background:#eef1f8; color:#3d4a72; border:1px solid #dfe4f0;
+                border-radius:6px; padding:2px 10px; font-size:.7rem; font-weight:700;
+                letter-spacing:.07em; }
+.prog { height:4px; border-radius:4px; background:#e6e9f2; margin:0 0 18px; overflow:hidden; }
+.prog > div { height:100%; background:var(--brand); border-radius:4px; }
+.ptitle { font-size:2.15rem; font-weight:800; color:var(--ink); line-height:1.15;
+          letter-spacing:-.015em; margin:0 0 8px; }
+.psub { font-size:1.12rem; color:var(--muted); line-height:1.5; max-width:860px; }
+.phr { height:1px; background:var(--line); border:0; margin:20px 0 6px; }
 
 /* ---------- section heading ---------- */
-.sec { font-size:1.22rem; font-weight:800; color:var(--ink); margin:30px 0 10px;
-       display:flex; align-items:center; gap:10px; letter-spacing:-.005em; }
-.sec-bar { width:6px; height:22px; border-radius:3px; background:var(--brand); flex:none; }
-.sec-sub { color:var(--muted); font-size:.95rem; margin:-4px 0 12px 16px; }
+.sec { font-size:1.18rem; font-weight:700; color:var(--ink); margin:30px 0 8px;
+       letter-spacing:-.005em; }
+.sec-sub { color:var(--muted); font-size:.96rem; margin:-2px 0 12px; }
 
 /* ---------- lead paragraph ---------- */
-.lead { font-size:1.1rem; color:#2a3040; line-height:1.7; background:#fff;
-        border:1px solid var(--line); border-radius:14px; padding:18px 22px; margin:0 0 14px;
-        box-shadow:0 1px 5px rgba(20,30,60,.04); }
+.lead { font-size:1.1rem; color:#363d4d; line-height:1.7; margin:14px 0 6px; max-width:900px; }
 .lead b { color:var(--ink); }
 
 /* ---------- key points ---------- */
-.pts { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px 22px 10px;
-       margin:12px 0; box-shadow:0 1px 5px rgba(20,30,60,.04); }
-.pts-t { font-size:.74rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
-         color:var(--brand); margin-bottom:6px; }
-.pts ul { margin:0; padding-left:1.15rem; }
-.pts li { margin:0 0 7px; font-size:1.01rem; color:#2a3040; }
+.pts { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 20px 8px;
+       margin:14px 0; }
+.pts-t { font-size:.72rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+         color:var(--muted); margin-bottom:8px; }
+.pts ul { margin:0; padding-left:1.1rem; }
+.pts li { margin:0 0 7px; font-size:1rem; color:#2a3040; }
 .pts li::marker { color:var(--brand); }
-.pts.green .pts-t { color:#1f8046; } .pts.green li::marker { color:var(--green); }
-.pts.amber .pts-t { color:#c67614; } .pts.amber li::marker { color:var(--amber); }
 
 /* ---------- callouts ---------- */
-.cal { border-radius:14px; padding:15px 18px 15px 20px; margin:12px 0; border-left:6px solid;
-       background:#fff; box-shadow:0 1px 5px rgba(20,30,60,.05); }
-.cal .cal-label { display:block; font-size:.72rem; font-weight:800; letter-spacing:.08em;
-                  text-transform:uppercase; margin-bottom:6px; }
-.cal .cal-body { font-size:1.01rem; color:#2a3040; line-height:1.65; }
-.cal.example { border-color:var(--amber); background:#fff8ef; }
-.cal.example .cal-label { color:#c67614; }
-.cal.concept { border-color:var(--brand); background:#eef2ff; }
+.cal { border-radius:12px; padding:13px 18px; margin:12px 0; border:1px solid; }
+.cal .cal-label { display:block; font-size:.72rem; font-weight:700; letter-spacing:.09em;
+                  text-transform:uppercase; margin-bottom:4px; }
+.cal .cal-body { font-size:1rem; color:#2a3040; line-height:1.65; }
+.cal.example { border-color:#f1dcbd; background:#fffaf2; }
+.cal.example .cal-label { color:#b26a12; }
+.cal.concept { border-color:#d9e0f7; background:#f5f7fe; }
 .cal.concept .cal-label { color:var(--brand); }
-.cal.key { border-color:var(--green); background:#eafaf0; }
-.cal.key .cal-label { color:#1f8046; }
-code { background:rgba(62,91,214,.09); color:#2a3a8f; padding:1px 6px; border-radius:5px;
+.cal.key { border-color:#d6dbe6; background:#f6f7fa; }
+.cal.key .cal-label { color:#3d4a72; }
+code { background:rgba(62,91,214,.08); color:#2a3a8f; padding:1px 6px; border-radius:5px;
        font-size:.9em; }
 
 /* ---------- in / out boxes ---------- */
@@ -98,17 +91,17 @@ code { background:rgba(62,91,214,.09); color:#2a3a8f; padding:1px 6px; border-ra
 .io-arrow { align-self:center; font-size:1.6rem; color:var(--brand); font-weight:800; }
 
 /* ---------- home cards ---------- */
-.feat { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px 20px;
-        box-shadow:0 2px 10px rgba(20,30,60,.05); height:100%; }
+.feat { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px 20px;
+        height:100%; }
 .feat-i { font-size:1.6rem; }
 .feat-t { font-weight:800; font-size:1.08rem; color:var(--ink); margin:6px 0 6px; }
 .feat-b { font-size:.96rem; color:var(--muted); line-height:1.55; }
 .path { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px 22px;
         box-shadow:0 2px 10px rgba(20,30,60,.05); height:100%; border-top:6px solid var(--brand); }
-.path.gan { border-top-color:var(--amber); }
+.path.gan { border-top-color:#3d4a72; }
 .path-k { font-size:.74rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
           color:var(--brand); }
-.path.gan .path-k { color:#c67614; }
+.path.gan .path-k { color:#3d4a72; }
 .path-t { font-size:1.3rem; font-weight:800; color:var(--ink); margin:4px 0 4px; }
 .path-s { color:var(--muted); font-size:.96rem; margin-bottom:10px; }
 .path ol { margin:0; padding-left:1.3rem; }
@@ -278,18 +271,34 @@ def _inline(md):
     return s
 
 
-def hero(title, subtitle, tags, accent="indigo"):
-    tags = [tags] if isinstance(tags, str) else tags
-    chips = "".join(f'<span class="hero-tag">{t}</span>' for t in tags)
-    st.markdown(
-        f'<div class="hero hero-{accent}"><div class="hero-tags">{chips}</div>'
-        f'<div class="hero-title">{title}</div><div class="hero-sub">{subtitle}</div></div>',
-        unsafe_allow_html=True)
+BADGES = {"LIVE DEMO", "MODEL", "TRAINING", "MODEL + TRAINING", "THE PAYOFF", "COLAB SETUP",
+          "OVERVIEW", "FULL CODE"}
+TOTAL_STEPS = 15
+
+
+def hero(title, subtitle, tags, accent=None):
+    """Page header: breadcrumb and progress on top, then the title and subtitle."""
+    tags = [tags] if isinstance(tags, str) else list(tags)
+    badge = tags.pop() if tags and tags[-1] in BADGES else ""
+    crumb = ""
+    for i, t in enumerate(tags):
+        if i:
+            crumb += '<span class="sep">›</span>'
+        crumb += f'<span class="{"part" if i == 0 else ""}">{t}</span>'
+    if badge:
+        crumb += f'<span class="badge">{badge}</span>'
+    prog = ""
+    m = _re.search(r"Step (\d+) of (\d+)", " ".join(tags))
+    if m:
+        pct = int(int(m.group(1)) / int(m.group(2)) * 100)
+        prog = f'<div class="prog"><div style="width:{pct}%"></div></div>'
+    st.markdown(f'<div class="crumb">{crumb}</div>{prog}<div class="ptitle">{title}</div>'
+                f'<div class="psub">{subtitle}</div><div class="phr"></div>',
+                unsafe_allow_html=True)
 
 
 def section(title, sub=None):
-    st.markdown(f'<div class="sec"><span class="sec-bar"></span>{title}</div>',
-                unsafe_allow_html=True)
+    st.markdown(f'<div class="sec">{title}</div>', unsafe_allow_html=True)
     if sub:
         st.markdown(f'<div class="sec-sub">{_inline(sub)}</div>', unsafe_allow_html=True)
 
@@ -301,7 +310,7 @@ def lead(md):
 
 def points(items, title="Key ideas", tone=""):
     lis = "".join(f"<li>{_inline(i)}</li>" for i in items)
-    st.markdown(f'<div class="pts {tone}"><div class="pts-t">{title}</div><ul>{lis}</ul></div>',
+    st.markdown(f'<div class="pts"><div class="pts-t">{title}</div><ul>{lis}</ul></div>',
                 unsafe_allow_html=True)
 
 
@@ -828,14 +837,14 @@ FULL_NOTEBOOK = "\n\n".join(f"# ===== {k} =====\n{v.strip()}" for k, v in C.item
 
 
 # ============================================================ pages
-P1, P2 = "PART 1 · TRANSFORMER", "PART 2 · MUSEGAN"
+P1, P2 = "Part 1 · Transformer", "Part 2 · MuseGAN"
 
 
 def page_home():
     hero("Music Generation Code Lab",
          "Teach a computer to write Bach, two ways. Every step has a live demo you can try in "
          "the browser and the full Python code to run in Colab.",
-         ["START HERE", "CHAPTER 11 · GENERATIVE DEEP LEARNING"], "indigo")
+         ["Start here", "Chapter 11 · Generative Deep Learning", "OVERVIEW"])
     c1, c2, c3 = st.columns(3)
     with c1:
         feat("🎼", "Live demos", "Parse real Bach, build tokens, draw the piano roll, and listen, "
@@ -896,7 +905,7 @@ def page_home():
 def page_setup():
     hero("Setup and data",
          "Install the libraries and load the Bach scores. Run these cells first in Colab.",
-         ["START HERE", "COLAB SETUP"], "slate")
+         ["Start here", "Setup", "COLAB SETUP"])
     points(["**music21** reads and writes music files and ships hundreds of Bach scores.",
             "**TensorFlow / Keras** builds and trains both models.",
             "Use a **GPU runtime** in Colab: Runtime → Change runtime type → GPU."],
@@ -918,7 +927,7 @@ def page_setup():
 def page_parse():
     hero("Parse MIDI with music21",
          "Turn a music file into a list of timed events: the bridge from music to data.",
-         [P1, "STEP 1 OF 9", "LIVE DEMO"], "green")
+         [P1, "Step 1 of 15", "LIVE DEMO"])
     lead("A MIDI file is a list of instructions: which note, when it starts, how long it lasts. "
          "`music21` reads those instructions and gives us back **objects we can loop over in "
          "Python**.")
@@ -928,7 +937,7 @@ def page_parse():
             "From here on, the music is just data."])
     try:
         score = load_score()
-        st.success(f"Loaded a real Bach chorale with {len(score.parts)} voices "
+        st.info(f"Loaded a real Bach chorale with {len(score.parts)} voices "
                    f"({', '.join(p.partName or '?' for p in score.parts)}).")
         section("Live: the first events in the score")
         rows = []
@@ -992,7 +1001,7 @@ def page_parse():
 def page_streams():
     hero("Two streams: notes and durations",
          "Split the music into two lists that line up: what plays, and for how long.",
-         [P1, "STEP 2 OF 9", "LIVE DEMO"], "green")
+         [P1, "Step 2 of 15", "LIVE DEMO"])
     lead("Every musical event carries **two facts**: which note, and how long it lasts. So we keep "
          "**two lists that line up** position by position.")
     points(["**Notes:** the pitch at each step, or `REST` for silence.",
@@ -1019,7 +1028,7 @@ def page_streams():
 def page_tokenize():
     hero("Tokenization: two vocabularies",
          "Give every symbol an integer ID: one dictionary for notes, one for durations.",
-         [P1, "STEP 3 OF 9", "LIVE DEMO"], "green")
+         [P1, "Step 3 of 15", "LIVE DEMO"])
     lead("A neural network only understands **numbers**, not text like `G3`. So we build a "
          "dictionary that gives every distinct symbol its own integer ID.")
     points(["We build it **twice**: one vocabulary for notes, one for durations.",
@@ -1056,7 +1065,7 @@ def page_tokenize():
 def page_window():
     hero("Sliding windows",
          "Cut each piece into many small 'predict the next event' examples.",
-         [P1, "STEP 4 OF 9", "LIVE DEMO"], "green")
+         [P1, "Step 4 of 15", "LIVE DEMO"])
     lead("Pieces have different lengths, but the model needs inputs of **one fixed size**. So we "
          "slide a window across each piece and cut out many training examples.")
     points(["**Window size:** how many events the model sees at once. The book uses 50.",
@@ -1087,7 +1096,7 @@ def page_window():
 def page_posenc():
     hero("Position encoding",
          "Stamp every slot with a 'where am I' signal, so order matters.",
-         [P1, "STEP 5 OF 9", "LIVE DEMO"], "green")
+         [P1, "Step 5 of 15", "LIVE DEMO"])
     lead("A Transformer looks at every token in the window **at once**, so on its own it has no "
          "sense of order. Position encoding adds a signal that says **where** each token sits.")
     points(["G3 B3 D3 and D3 B3 G3 use the same notes. Only the **order** differs.",
@@ -1127,7 +1136,7 @@ def page_posenc():
 def page_model():
     hero("The model: what goes in, what comes out",
          "Two token streams in, two 'what comes next' predictions out.",
-         [P1, "STEP 6 OF 9", "MODEL + TRAINING"], "indigo")
+         [P1, "Step 6 of 15", "MODEL + TRAINING"])
     lead("This is the heart of Part 1. The most important thing to be clear about is the "
          "**input** and the **output**.")
     io([("Input", "two windows of IDs: notes and durations, `[B, 50]` each"),
@@ -1178,7 +1187,7 @@ def page_model():
 def page_generate():
     hero("Generate new music",
          "Feed the music so far, sample the next event, append it, and repeat.",
-         [P1, "STEP 7 OF 9", "LIVE DEMO"], "green")
+         [P1, "Step 7 of 15", "LIVE DEMO"])
     lead("Training is done. Now we **use** the model to compose. This is called **inference**.")
     points(["Feed the events so far, starting from `START`.",
             "The model returns the next-note and next-duration probabilities.",
@@ -1197,7 +1206,7 @@ def page_generate():
     st.pyplot(fig)
     if st.button("Sample a note"):
         pick = int(np.random.choice(len(labels), p=probs))
-        st.success(f"sampled: {labels[pick]}")
+        st.info(f"sampled: {labels[pick]}")
     st.caption("Real generation from the trained model runs in Colab with the code below.")
     section("Colab code")
     colab_code(C["generate"], "Generate with the trained model")
@@ -1207,7 +1216,7 @@ def page_generate():
 def page_analysis():
     hero("Look inside: attention and keys",
          "Trained only to predict the next event, the model learns music theory by itself.",
-         [P1, "STEP 8 OF 9", "THE PAYOFF"], "amber")
+         [P1, "Step 8 of 15", "THE PAYOFF"])
     lead("Nobody told the model about keys or scales. It only learned to **predict the next "
          "event**. Yet two heatmaps show it learned real musical structure.")
     callout("key", "It discovered the key",
@@ -1226,7 +1235,7 @@ def page_analysis():
 def page_polyphony():
     hero("Polyphony: several notes at once",
          "Real music stacks notes. Two ways to flatten several voices into one sequence.",
-         [P1, "STEP 9 OF 9", "LIVE DEMO"], "green")
+         [P1, "Step 9 of 15", "LIVE DEMO"])
     lead("So far the music was **one line** (monophonic). Real music often has **several notes at "
          "once** (polyphonic). A Transformer reads one list of tokens, so we must **flatten** "
          "the voices into one sequence, like flattening an image into one long vector.")
@@ -1263,7 +1272,7 @@ def page_polyphony():
 def page_musegan_data():
     hero("The piano-roll tensor",
          "A new view: draw the score as an image, then use convolution tools.",
-         [P2, "STEP 10", "LIVE DEMO"], "amber")
+         [P2, "Step 10 of 15", "LIVE DEMO"])
     lead("MuseGAN does not read tokens. It draws the music on a **grid**: pitch up the side, time "
          "across, and a 1 wherever a note sounds. That grid is an **image**, so convolutions work "
          "on it.")
@@ -1288,7 +1297,7 @@ def page_musegan_data():
 def page_temporal():
     hero("The temporal network",
          "Turn one random vector into one plan per bar, so the bars belong together.",
-         [P2, "STEP 11", "MODEL"], "indigo")
+         [P2, "Step 11 of 15", "MODEL"])
     lead("A plain GAN turns one random vector into one output. A piece has **several bars** that "
          "should relate. The temporal network turns **one seed** into **one vector per bar**.")
     points(["It is a **small part of the generator**, not a separate model, and draws no music.",
@@ -1308,7 +1317,7 @@ def page_temporal():
 def page_bargen():
     hero("The bar generator",
          "Paint one bar for one voice, then repeat it everywhere.",
-         [P2, "STEP 12", "MODEL"], "indigo")
+         [P2, "Step 12 of 15", "MODEL"])
     lead("The bar generator does one small job: **paint a single bar for a single voice**.")
     points(["Its input joins **four pieces**: chords for this bar, style, this voice's melody for "
             "this bar, and this voice's groove.",
@@ -1328,7 +1337,7 @@ def page_bargen():
 def page_generator():
     hero("The full generator",
          "Run the bar generator for every bar and every voice, then stack the results.",
-         [P2, "STEP 13", "MODEL"], "indigo")
+         [P2, "Step 13 of 15", "MODEL"])
     lead("Now we put the pieces together. The full generator is the **temporal networks plus the "
          "four bar generators**.")
     points(["**Style:** one vector, copied to every voice and every bar.",
@@ -1348,7 +1357,7 @@ def page_generator():
 def page_critic():
     hero("The critic",
          "The judge: one realism score for a whole piano roll.",
-         [P2, "STEP 14", "MODEL"], "indigo")
+         [P2, "Step 14 of 15", "MODEL"])
     lead("The critic looks at a whole piano roll, real Bach or a fake, and outputs **one number**: "
          "how real does this look?")
     points(["It is a **CNN** that reads the full `[bars, steps, pitches, voices]` block.",
@@ -1365,7 +1374,7 @@ def page_critic():
 def page_wgan():
     hero("WGAN-GP training",
          "The adversarial game from your GAN lecture, now with music.",
-         [P2, "STEP 15", "TRAINING"], "indigo")
+         [P2, "Step 15 of 15", "TRAINING"])
     lead("The critic and the generator **take turns**. The critic learns to tell real from fake; "
          "the generator learns to fool it.")
     points(["**Critic:** scores real music high and fakes low. It updates its weights **5 times**; "
@@ -1384,7 +1393,7 @@ def page_wgan():
 def page_notebook():
     hero("The whole notebook",
          "Every code cell from every page, in order, in one file.",
-         ["TAKE IT TO COLAB"], "slate")
+         ["Take it to Colab", "FULL CODE"])
     points(["Download the file, or open the panel below and copy it.",
             "Paste it into Colab, cell by cell, with a **GPU** runtime.",
             "Run Part 1 first, then Part 2."], "How to use it", "green")
